@@ -1,0 +1,115 @@
+.history-container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 0 20px;
+  font-family: 'Inter', sans-serif;
+}
+
+.page-title { font-size: 32px; font-weight: 800; margin-bottom: 30px; }
+
+.order-card {
+  background: #161D2E;
+  border: 1px solid rgba(245, 245, 247, 0.08);
+  border-radius: 16px;
+  margin-bottom: 25px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.order-header {
+  padding: 20px;
+  background: #0B0F1A;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(245, 245, 247, 0.08);
+}
+
+.order-number { font-weight: 700; font-size: 18px; display: block; }
+.order-date { font-size: 14px; color: #8B92A8; }
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(245, 245, 247, 0.08);
+}
+
+/* Status Colors */
+.status-badge[data-status="CONFIRMED"] { background: rgba(46, 204, 113, 0.15); color: #2ECC71; }
+.status-badge[data-status="PENDING"] { background: rgba(255, 176, 32, 0.15); color: #FFB020; }
+.status-badge[data-status="SHIPPED"] { background: rgba(61, 232, 255, 0.15); color: #3DE8FF; }
+
+.order-body { padding: 20px; }
+.item-row { display: flex; gap: 15px; align-items: center; margin-bottom: 15px; }
+.item-row img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; }
+.item-info .name { font-weight: 600; margin: 0; }
+.item-info .meta { font-size: 13px; color: #8B92A8; margin: 0; }
+
+.order-footer {
+  padding: 20px;
+  background: #161D2E;
+  border-top: 1px solid #1B2338;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.address-summary { font-size: 13px; color: #8B92A8; max-width: 60%; }
+.total-summary { text-align: right; }
+.total-summary span { font-size: 14px; color: #8B92A8; margin-right: 10px; }
+.total-summary strong { font-size: 20px; color: #F5F5F7; }
+.cancel-order-btn {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1.5px solid var(--zn-danger, #dc2626);
+    color: var(--zn-danger, #dc2626);
+    border-radius: var(--zn-radius-md, 10px);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.cancel-order-btn:hover:not(:disabled) {
+    background: var(--zn-danger-bg, rgba(220, 38, 38, 0.12));
+}
+.cancel-order-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* --- Pagination --- */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 2rem 0;
+    flex-wrap: wrap;
+}
+.page-btn {
+    padding: 0.6rem 1rem;
+    border: 2px solid var(--zn-border, rgba(245, 245, 247, 0.08));
+    background: transparent;
+    color: var(--zn-text-muted, #8B92A8);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+    min-width: 40px;
+}
+.page-btn:hover:not(:disabled) {
+    border-color: var(--zn-primary, #FF3D71);
+    color: var(--zn-primary, #FF3D71);
+}
+.page-btn.active {
+    background: var(--zn-primary, #FF3D71);
+    border-color: var(--zn-primary, #FF3D71);
+    color: #fff;
+}
+.page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

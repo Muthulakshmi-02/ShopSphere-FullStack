@@ -1,0 +1,57 @@
+<div class="categories-page">
+
+    <div class="page-header">
+
+        <span class="page-badge">
+            Browse Collections
+        </span>
+
+        <h1>
+            Discover By Category
+        </h1>
+
+        <p>
+            Explore curated collections and find products that match your interests.
+        </p>
+
+    </div>
+
+    <div class="categories-grid">
+
+        <div class="category-card" *ngFor="let category of categories()" (click)="openCategory(category.categoryId)">
+
+            <div class="card-top">
+
+                <div class="category-icon">
+                    {{ getCategoryIcon(category.name) }}
+                </div>
+
+                <span class="arrow">
+                    →
+                </span>
+
+            </div>
+
+            <h3>
+                {{ category.name | titlecase }}
+
+            </h3>
+            <span class="category-count">
+
+                {{ getProductCount(category.categoryId) }}
+
+            </span>
+
+            <p>
+                {{ category.description }}
+            </p>
+
+            <button class="explore-btn">
+                Explore Collection
+            </button>
+
+        </div>
+
+    </div>
+
+</div>

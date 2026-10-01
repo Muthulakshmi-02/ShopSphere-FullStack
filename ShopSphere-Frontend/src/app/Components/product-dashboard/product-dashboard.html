@@ -1,0 +1,268 @@
+<div class="shop-container">
+  <!-- Homepage Hero -->
+  <section class="hero-banner">
+    <div class="hero-content">
+      <span class="hero-eyebrow">
+        🔥 Trending Across ShopSphere
+      </span>
+
+      <h1 class="hero-title">
+        EVERYTHING YOU LOVE.
+        <br />
+        ALL IN ONE SPHERE.
+      </h1>
+
+      <p class="hero-subtitle">
+        Explore electronics, beauty, fashion and more with secure checkout, fast delivery, and trusted products.
+      </p>
+
+      <div class="hero-actions">
+        <a href="#product-grid" class="hero-cta">Shop Collections</a>
+        <div class="hero-highlights">
+          <span>✓ Trusted Products</span>
+          <span>✓ Secure Payments</span>
+          <span>✓ Fast Delivery</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Card positioned neatly inside -->
+    <div class="hero-floating-card">
+      <div class="floating-label">Trending Now</div>
+      <div class="floating-item">🔥 Electronics</div>
+      <div class="floating-item">💄 Beauty</div>
+      <div class="floating-item">🧸 Toys</div>
+    </div>
+  </section>
+
+
+  <!-- Modern Shop Header -->
+  <header class="shop-header" id="product-grid">
+    <div class="search-wrapper glass-card">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+      <input type="text" [value]="searchKeyword()" (input)="onSearchInput($event)" placeholder="Search for greatness..."
+        class="search-input" />
+    </div>
+
+    <div class="results-count glass-card">
+      <span>Showing</span>
+      <strong>{{ totalProducts() }}</strong>
+      <span>products</span>
+    </div>
+
+    <div class="sort-wrapper glass-card">
+      <select [value]="selectedSort()" (change)="onSortChangeSafe($event)" class="sort-select">
+        <option *ngFor="let opt of sortOptions" [value]="opt.value">
+          {{ opt.label }}
+        </option>
+      </select>
+    </div>
+  </header>
+
+  <!-- Modern Shop Layout -->
+  <div class="shop-layout">
+    <!-- Glass Filter Sidebar -->
+    <aside class="filter-sidebar glass-card">
+      <div class="filter-header">
+        <h3>Categories</h3>
+        <div class="filter-count">{{ categories().length }} options</div>
+      </div>
+
+      <div class="filter-group">
+        <button class="filter-link active" (click)="selectedCategory.set(null); currentPage.set(0)">
+          <span>All Collections</span>
+          <div class="filter-indicator"></div>
+        </button>
+        <button *ngFor="let cat of categories()" class="filter-link"
+          [class.active]="selectedCategory() === cat.categoryId"
+          (click)="selectedCategory.set(cat.categoryId); currentPage.set(0)">
+          <!-- <span>{{ cat.name }}</span> -->
+          <div class="category-row">
+
+            <span>{{ cat.name | titlecase }}</span>
+
+            <!-- <span class="category-count">
+              {{ getCategoryCount(cat.categoryId) }}
+            </span> -->
+            <span class="category-count" [class.zero]="getCategoryCount(cat.categoryId) === 0">
+              {{ getCategoryCount(cat.categoryId) }}
+            </span>
+          </div>
+          <div class="filter-indicator"></div>
+        </button>
+      </div>
+
+      <button class="btn-clear" (click)="clearFilters()">
+        <svg class="clear-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+        </svg>
+        Reset Filters
+      </button>
+    </aside>
+
+    <!-- Main Product Grid -->
+    <main class="product-grid-container">
+      <!-- Loading Bar -->
+      @if (loading()) {
+      <div class="loader-container">
+        <div class="loader-bar"></div>
+        <div class="loader-text">Loading products...</div>
+      </div>
+      }
+
+      <!-- Product Grid -->
+      @if (products().length > 0) {
+      <div class="product-grid">
+        <article class="product-card glass-card" *ngFor="let p of products(); trackBy: trackByProductId">
+          <div class="image-container">
+            <img [src]="API_URL + '/images/' + p.imageUrl" [alt]="p.name" class="product-img" loading="lazy" />
+
+            <span class="discount-badge" *ngIf="p.discountPercentage">
+              -{{ p.discountPercentage }}%
+            </span>
+
+            <button class="wishlist-btn" [class.active]="isInWishlist(p.productId)"
+              (click)="toggleWishlist(p.productId); $event.stopPropagation()"
+              [attr.aria-label]="isInWishlist(p.productId) ? 'Remove from wishlist' : 'Add to wishlist'">
+              <svg viewBox="0 0 24 24" [attr.fill]="isInWishlist(p.productId) ? 'currentColor' : 'none'"
+                stroke="currentColor" stroke-width="2">
+                <path
+                  d="M12 21s-6.7-4.35-9.33-8.2C.86 10.02 1.5 6.2 4.9 4.6c2.1-1 4.44-.4 5.83 1.32L12 7.3l1.27-1.38c1.39-1.72 3.73-2.32 5.83-1.32 3.4 1.6 4.04 5.42 2.23 8.2C18.7 16.65 12 21 12 21z" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="product-info">
+            <span class="category-tag">
+              {{ p.categoryName }}
+            </span>
+            <h2 class="product-name">
+              <a [routerLink]="['/products', p.productId]">{{ p.name }}</a>
+            </h2>
+
+            <div class="rating-row" *ngIf="p.rating">
+              <span class="stars" [style.--rating]="p.rating"></span>
+              <span class="rating-value">{{ p.rating }}</span>
+              <span class="review-count" *ngIf="p.reviewCount">({{ p.reviewCount }})</span>
+            </div>
+
+            <!-- Price is always visible now - it used to only appear on
+                 hover, hidden behind an overlay that also covered the
+                 product photo. Neither is good for a shopper trying to
+                 evaluate a product at a glance. -->
+            <div class="static-price-row">
+              <span class="static-price" *ngIf="!p.discountPercentage">
+                {{ p.price | currency:'INR':'symbol':'1.2-2' }}
+              </span>
+              <ng-container *ngIf="p.discountPercentage">
+                <span class="static-price-original">
+                  {{ p.price | currency:'INR':'symbol':'1.2-2' }}
+                </span>
+                <span class="static-price-final">
+                  {{ discountedPrice(p) | currency:'INR':'symbol':'1.2-2' }}
+                </span>
+              </ng-container>
+            </div>
+
+            <span class="low-stock-badge" *ngIf="p.stock > 0 && p.stock <= 5">
+              Only {{ p.stock }} left in stock
+            </span>
+
+            <span class="out-of-stock-badge" *ngIf="p.stock === 0">
+              Out of stock
+            </span>
+
+            <div class="card-actions">
+              <button class="buy-now-btn gradient-btn" [disabled]="p.stock === 0"
+                (click)="buyNow(p.productId); $event.stopPropagation()">
+                <svg class="lightning-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                {{ p.stock === 0 ? 'Unavailable' : 'Buy Now' }}
+              </button>
+              <button class="add-to-cart-btn" [disabled]="p.stock === 0"
+                (click)="addToCart(p.productId); $event.stopPropagation()">
+                <svg class="cart-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM17 18c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zM2 2v2h1.1l.9 6.6c0 .2.08.4.2.55h12.1c.12-.15.2-.35.2-.55L20.9 4H22V2H2zm15.5 12H5.5l-.7-5h13.9l-.7 5z" />
+                </svg>
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </article>
+      </div>
+      <section class="recently-viewed-section" *ngIf="recentlyViewed().length > 0">
+
+        <div class="section-header">
+
+          <h2>
+            Recently Viewed
+          </h2>
+
+        </div>
+
+        <div class="recently-grid">
+
+          <article class="recent-card" *ngFor="let p of recentlyViewed()">
+
+            <img [src]="API_URL + '/images/' + p.imageUrl" [alt]="p.name">
+
+            <h4>
+              {{ p.name }}
+            </h4>
+
+            <span>
+              {{ discountedPrice(p)
+              | currency:'INR' }}
+            </span>
+
+          </article>
+
+        </div>
+
+      </section>
+
+      <!-- Modern Pagination -->
+      @if (totalPages() > 1) {
+      <footer class="pagination glass-card">
+        <button class="page-btn" (click)="goPrevPage()" [disabled]="currentPage() === 0">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+          </svg>
+          Previous
+        </button>
+
+        <button *ngFor="let n of pageNumbers()" class="page-btn" [class.active]="currentPage() === n"
+          (click)="goToPage(n)">
+          {{ n + 1 }}
+        </button>
+
+        <button class="page-btn" (click)="goNextPage()" [disabled]="currentPage() === totalPages() - 1">
+          Next
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="m8.59 16.59 4.59-4.59L8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+          </svg>
+        </button>
+      </footer>
+      }
+      }
+
+      <!-- Empty State -->
+      @else {
+      <div class="empty-state glass-card">
+        <div class="empty-icon">📦</div>
+        <h3>We couldn't find any products</h3>
+        <p>Try adjusting your search or filters to see more results.</p>
+        <button class="btn-primary" (click)="clearFilters()">
+          View All Products
+        </button>
+      </div>
+      }
+    </main>
+  </div>
+</div>

@@ -1,0 +1,88 @@
+<header class="main-header">
+    <div class="header-container">
+        <!-- Brand -->
+        <a routerLink="/" class="brand-logo">
+            <!-- <div class="logo-icon">🛒</div> -->
+            <div class="logo-icon">
+                <mat-icon>storefront</mat-icon>
+            </div>
+            <span class="brand-name">ShopSphere</span>
+        </a>
+
+        <!-- Orders Button -->
+        <button class="orders-btn" (click)="goToOrders()">
+
+            <mat-icon class="orders-icon">
+                receipt_long
+            </mat-icon>
+
+            <span>My Orders</span>
+
+        </button>
+        <!-- Actions -->
+        <div class="header-actions">
+            <!-- Nav Links -->
+            <nav class="nav-links">
+                <a routerLink="/products" routerLinkActive="active" class="nav-link">
+                    Products
+                </a>
+                <a routerLink="/categories" class="nav-link">Categories</a>
+            </nav>
+
+            <!-- Auth -->
+            @if (isUserLoggedIn()) {
+            <div class="user-profile">
+                <div class="avatar" [title]="auth.currentUser()?.userName">
+                    {{ userInitials() }}
+                </div>
+                <div class="user-info">
+                    <div class="user-name">
+                        {{ auth.currentUser()?.userName }}
+                    </div>
+                    <div class="user-role">
+                        {{ auth.currentUser()?.role }}
+                    </div>
+                </div>
+                <button class="logout-btn" type="button" (click)="logout()">
+                    <svg class="logout-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
+                    </svg>
+                </button>
+            </div>
+            } @else {
+            <div class="auth-links">
+                <a routerLink="/login" class="auth-link">Sign In</a>
+                <a routerLink="/register" class="btn-primary">Join Free</a>
+            </div>
+            }
+
+            <!-- Wishlist link -->
+            @if (isUserLoggedIn()) {
+            <a routerLink="/wishlist" class="wishlist-nav-link" aria-label="My Wishlist">
+
+                <mat-icon>
+                    favorite
+                </mat-icon>
+
+            </a>
+            }
+
+            <!-- Cart button -->
+            <button class="cart-btn" type="button" (click)="goToCart()">
+
+                <!-- <div class="cart-icon">🛒</div> -->
+                <div class="cart-icon">
+
+                    <mat-icon>
+                        shopping_cart
+                    </mat-icon>
+
+                </div>
+                @if (cartCount() > 0) {
+                <span class="cart-badge">{{ cartCount() }}</span>
+                }
+            </button>
+        </div>
+    </div>
+</header>

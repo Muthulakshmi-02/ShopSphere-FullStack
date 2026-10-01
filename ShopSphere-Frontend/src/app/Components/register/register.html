@@ -1,0 +1,73 @@
+<div class="register-wrapper">
+  <div class="register-container">
+    <!-- Brand -->
+    <div class="register-brand">
+      <div class="logo">🛒</div>
+      <h1>ShopSphere</h1>
+    </div>
+
+    <!-- Header -->
+    <div class="register-header">
+      <h2>Create Account</h2>
+      <p>Join our marketplace</p>
+    </div>
+
+    <!-- Error -->
+    @if (errorMessage()) {
+      <div class="alert-error">{{ errorMessage() }}</div>
+    }
+
+    <!-- Form -->
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+      <div class="input-group">
+        <input 
+          type="text" 
+          formControlName="userName" 
+          placeholder="Full Name"
+          [class.error]="registerForm.get('userName')?.touched && registerForm.get('userName')?.invalid"
+        />
+        @if (registerForm.get('userName')?.touched && registerForm.get('userName')?.invalid) {
+          <span class="error-text">Name is required</span>
+        }
+      </div>
+
+      <div class="input-group">
+        <input 
+          type="email" 
+          formControlName="email" 
+          placeholder="Email"
+          [class.error]="registerForm.get('email')?.touched && registerForm.get('email')?.invalid"
+        />
+        @if (registerForm.get('email')?.touched && registerForm.get('email')?.invalid) {
+          <span class="error-text">Valid email required</span>
+        }
+      </div>
+
+      <div class="input-group">
+        <input 
+          [type]="showPassword() ? 'text' : 'password'"
+          formControlName="password" 
+          placeholder="Password"
+          [class.error]="registerForm.get('password')?.touched && registerForm.get('password')?.invalid"
+        />
+        <button type="button" class="password-toggle" (click)="togglePassword()">👁️</button>
+        @if (registerForm.get('password')?.touched && registerForm.get('password')?.invalid) {
+          <span class="error-text">Minimum 8 characters</span>
+        }
+      </div>
+
+      <button type="submit" [disabled]="isLoading() || registerForm.invalid">
+        @if (isLoading()) {
+          <span class="spinner"></span> Creating...
+        } @else {
+          Create Account
+        }
+      </button>
+    </form>
+
+    <!-- Footer -->
+    <div class="register-footer">
+      <p>Have account? <a routerLink="/login">Sign In</a></p>
+    </div>
+  </div>
+</div>

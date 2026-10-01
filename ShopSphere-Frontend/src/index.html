@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>NewProject</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
+               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com; 
+               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
+               font-src 'self' https://fonts.gstatic.com; 
+               img-src 'self' data: blob: http: https:; 
+               frame-src https://api.razorpay.com https://checkout.razorpay.com;
+               connect-src 'self' http://localhost:4500 ws://localhost:4500 http://localhost:8080 https://api.razorpay.com https://lumberjack.razorpay.com;">
+
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- Razorpay's Checkout widget - loaded once, globally, since it's only
+       ever opened from the checkout page but is small and safe to have
+       available app-wide. -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+
+<body>
+  <app-root></app-root>
+</body>
+
+</html>

@@ -1,0 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/*
+  Theme: "Pulse" - a live/drop-culture direction for the storefront.
+  Variable NAMES are kept the same as before on purpose, so every component
+  already built against --zn-* tokens (toasts, confirm modal, badges,
+  timeline, wishlist, footer, product-detail) picks up the new theme
+  automatically without being touched individually. Components that predate
+  the token system (login, register, checkout, cart, admin-dashboard,
+  my-orders-page) still have their own hardcoded local colors and are NOT
+  yet converted - see the rollout notes shared alongside this change.
+*/
+:root {
+  /* Brand */
+  --zn-dark: #05070d;
+  --zn-primary: #FF3D71;       /* signature coral - replaces old indigo */
+  --zn-primary-dark: #E62E5C;
+  --zn-primary-light: rgba(255, 61, 113, 0.12);
+  --zn-accent: #FFB020;        /* amber - pricing / urgency */
+  --zn-cyan: #3DE8FF;          /* "live" indicator color */
+
+  /* Semantic */
+  --zn-success: #2ECC71;
+  --zn-success-bg: rgba(46, 204, 113, 0.12);
+  --zn-danger: #FF3D71;
+  --zn-danger-bg: rgba(255, 61, 113, 0.12);
+  --zn-warning: #FFB020;
+  --zn-warning-bg: rgba(255, 176, 32, 0.12);
+  --zn-info: #3DE8FF;
+  --zn-info-bg: rgba(61, 232, 255, 0.12);
+
+  /* Text / surfaces - dark UI */
+  --zn-text-main: #F5F5F7;
+  --zn-text-muted: #8B92A8;
+  --zn-border: rgba(245, 245, 247, 0.08);
+  --zn-bg-light: #0B0F1A;      /* page background */
+  --zn-surface: #161D2E;       /* card/panel background */
+
+  /* Spacing scale */
+  --zn-space-1: 4px;
+  --zn-space-2: 8px;
+  --zn-space-3: 12px;
+  --zn-space-4: 16px;
+  --zn-space-5: 24px;
+  --zn-space-6: 32px;
+  --zn-space-8: 48px;
+
+  /* Radius scale */
+  --zn-radius-sm: 6px;
+  --zn-radius-md: 10px;
+  --zn-radius-lg: 16px;
+  --zn-radius-full: 999px;
+
+  /* Shadows - tuned for a dark background */
+  --zn-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --zn-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --zn-shadow-lg: 0 12px 40px -8px rgba(255, 61, 113, 0.25);
+
+  /* Motion */
+  --zn-transition: 150ms ease;
+
+  /* Gradient + fonts */
+  --zn-gradient-brand: linear-gradient(135deg, #FF3D71 0%, #E62E5C 60%, #FFB020 130%);
+  --zn-font-display: 'Anton', sans-serif;
+  --zn-font-body: 'Space Grotesk', sans-serif;
+  --zn-font-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--zn-font-body);
+  background-color: var(--zn-bg-light);
+  color: var(--zn-text-main);
+  line-height: 1.5;
+}
+
+/* Visible, accessible focus state used app-wide */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--zn-primary);
+  outline-offset: 2px;
+}
+
+img { max-width: 100%; display: block; }
+
+/* Reusable elevated card look, available to any component that opts in */
+.zn-card {
+  background: var(--zn-surface);
+  border-radius: var(--zn-radius-lg);
+  box-shadow: var(--zn-shadow-md);
+  border: 1px solid var(--zn-border);
+  transition: box-shadow var(--zn-transition), transform var(--zn-transition);
+}
+.zn-card:hover {
+  box-shadow: var(--zn-shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Live/pulsing status dot - used by the live-sales ticker and any
+   "N people viewing" style indicator */
+.zn-live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--zn-primary);
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(255, 61, 113, 0.6);
+  animation: zn-pulse-dot 1.6s ease-out infinite;
+}
+@keyframes zn-pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(255, 61, 113, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(255, 61, 113, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 61, 113, 0); }
+}
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }

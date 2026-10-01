@@ -1,0 +1,112 @@
+.zn-hero {
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  padding: 60px 5%;
+  background: #ffffff;
+}
+
+.zn-hero-content {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+.zn-badge-new {
+  color: var(--zn-primary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.8rem;
+}
+
+.zn-hero-title {
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 1.1;
+  font-weight: 800;
+  margin: 20px 0;
+  color: var(--zn-dark);
+}
+
+.zn-hero-title span {
+  color: #94a3b8; /* Muted contrast */
+}
+
+.zn-hero-subtitle {
+  color: var(--zn-text-muted);
+  font-size: 1.1rem;
+  max-width: 500px;
+  margin-bottom: 2.5rem;
+}
+
+.zn-hero-btns {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 4rem;
+}
+
+.zn-btn-main {
+  background: var(--zn-dark);
+  color: white;
+  padding: 16px 32px;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.zn-btn-main:hover {
+  background: #1e293b;
+  transform: translateY(-2px);
+}
+
+.zn-btn-outline {
+  border: 1px solid var(--zn-border);
+  padding: 16px 32px;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--zn-dark);
+}
+
+/* Stats Section */
+.zn-hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.stat { display: flex; flex-direction: column; }
+.stat strong { font-size: 1.5rem; color: var(--zn-dark); }
+.stat span { font-size: 0.8rem; color: var(--zn-text-muted); }
+.zn-v-line { width: 1px; height: 30px; background: var(--zn-border); }
+
+/* Visual Side (Image/Placeholder) */
+.zn-hero-visual {
+  position: relative;
+  height: 600px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+}
+
+.zn-floating-card {
+  position: absolute;
+  bottom: 40px;
+  left: -20px;
+  background: white;
+  padding: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  border-radius: 4px;
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}

@@ -1,0 +1,118 @@
+<!-- <div class="success-container">
+  <div class="success-card">
+    <div class="icon-circle">
+      <span class="checkmark">✓</span>
+    </div>
+    
+    <h1 class="thank-you">Order Confirmed!</h1>
+    <p class="subtitle">Thank you for your purchase. Your order is being processed.</p>
+
+    <div class="order-id-badge">
+      Order #{{ orderData?.orderId }}
+    </div>
+
+    <app-order-timeline [status]="orderData?.orderStatus || 'PENDING'"></app-order-timeline>
+
+    <div class="order-details">
+      <h3>Summary</h3>
+      <div class="detail-row">
+        <span>Status</span>
+        <span class="status-pill">{{ orderData?.orderStatus }}</span>
+      </div>
+      <div class="detail-row">
+        <span>Payment</span>
+        <span>{{ orderData?.paymentStatus }}</span>
+      </div>
+      <div class="detail-row">
+        <span>Total Amount</span>
+        <span class="total-price">{{ orderData?.totalAmount | currency }}</span>
+      </div>
+      <div class="detail-row address">
+        <span>Shipping To</span>
+        <p>{{ orderData?.shippingAddress }}</p>
+      </div>
+    </div>
+
+    <div class="purchased-items">
+      <h4>Items Purchased</h4>
+      <div class="mini-item" *ngFor="let item of orderData?.items">
+        <img [src]="productImageUrl(item.imageUrl)" alt="product" loading="lazy" decoding="async">
+        <div class="mini-info">
+          <p class="m-name">{{ item.productName }}</p>
+          <p class="m-qty">Qty: {{ item.quantity }}</p>
+        </div>
+        <span class="m-price">{{ item.priceAtPurchase | currency }}</span>
+      </div>
+    </div>
+
+    <div class="action-footer">
+      <button routerLink="/products" class="btn-continue">Continue Shopping</button>
+      <button routerLink="/my-orders" class="btn-history">View Order History</button>
+    </div>
+  </div>
+</div> -->
+
+<div class="success-container">
+  <div class="success-card">
+    <div class="icon-circle">
+      <span class="checkmark">✓</span>
+    </div>
+
+    <h1 class="thank-you">Order Confirmed!</h1>
+    <p class="subtitle">Thank you for your purchase. Your order is being processed.</p>
+
+    <div class="order-id-badge">
+      Order #{{ orderData?.orderId }}
+    </div>
+
+    <app-order-timeline [status]="orderData?.orderStatus || 'PENDING'"></app-order-timeline>
+
+    <div class="order-details">
+      <h3>Summary</h3>
+      <div class="detail-row">
+        <span>Status</span>
+        <span class="status-pill">{{ orderData?.orderStatus }}</span>
+      </div>
+      <div class="detail-row">
+        <span>Payment</span>
+        <span>{{ orderData?.paymentStatus }}</span>
+      </div>
+      <div class="detail-row">
+        <span>Total Amount</span>
+        <span class="total-price">{{ orderData?.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span>
+      </div>
+      <div class="detail-row address">
+        <span>Shipping To</span>
+        <p>{{ orderData?.shippingAddress }}</p>
+      </div>
+    </div>
+
+    <div class="purchased-items">
+      <h4>Items Purchased</h4>
+      <div class="mini-item" *ngFor="let item of orderData?.items">
+        <img [src]="productImageUrl(item.imageUrl)" alt="product" loading="lazy" decoding="async">
+        <div class="mini-info">
+          <p class="m-name">{{ item.productName }}</p>
+          <p class="m-qty">Qty: {{ item.quantity }}</p>
+        </div>
+        <span class="m-price">{{ item.priceAtPurchase | currency:'INR':'symbol':'1.2-2' }}</span>
+      </div>
+    </div>
+
+    <!-- Email Dispatch Notification Badge -->
+    <div class="email-dispatch-card"
+      style="display: flex; align-items: center; gap: 1rem; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); padding: 1rem 1.25rem; border-radius: 16px; margin: 1.5rem 0;">
+      <div style="font-size: 1.5rem;">📧</div>
+      <div style="text-align: left;">
+        <h4 style="margin: 0 0 0.2rem 0; color: #10b981; font-size: 1rem; font-weight: 600;">Confirmation Email Sent
+        </h4>
+        <p style="margin: 0; color: #8B92A8; font-size: 0.85rem;">We've emailed your invoice and tracking details.</p>
+      </div>
+    </div>
+
+    <div class="action-footer">
+      <button routerLink="/products" class="btn-continue">Continue Shopping</button>
+      <button routerLink="/my-orders" class="btn-history">View Order History</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,779 @@
+<div class="admin-shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section-title">
+      MANAGEMENT
+    </div>
+
+    <nav>
+
+      <button class="tab-btn" [class.active]="activeTab() === 'products'" (click)="activeTab.set('products')">
+        <!-- 
+        <span class="nav-icon">📦</span> -->
+        <mat-icon class="nav-icon">
+          inventory_2
+        </mat-icon>
+
+        <span class="nav-label">
+          Products
+        </span>
+
+      </button>
+
+      <button class="tab-btn" [class.active]="activeTab() === 'categories'" (click)="activeTab.set('categories')">
+
+        <!-- <span class="nav-icon">🗂</span> -->
+        <mat-icon class="nav-icon">
+          category
+        </mat-icon>
+
+
+        <span class="nav-label">
+          Categories
+        </span>
+
+      </button>
+
+      <button class="tab-btn" [class.active]="activeTab() === 'orders'" (click)="activeTab.set('orders')">
+
+        <!-- <span class="nav-icon">📋</span> -->
+        <mat-icon class="nav-icon">
+          receipt_long
+        </mat-icon>
+
+        <span class="nav-label">
+          Orders
+        </span>
+
+      </button>
+
+      <button class="tab-btn" [class.active]="activeTab() === 'analytics'" (click)="openAnalyticsTab()">
+
+        <!-- <span class="nav-icon">📈</span> -->
+
+        <mat-icon class="nav-icon">
+          analytics
+        </mat-icon>
+        <span class="nav-label">
+          Analytics
+        </span>
+
+      </button>
+
+    </nav>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+    <header class="main-header">
+      <div>
+        <h1 class="title">
+          {{
+          activeTab() === 'products' ? 'Products' :
+          activeTab() === 'categories' ? 'Categories' :
+          activeTab() === 'orders' ? 'Orders' :
+          'Store Performance'
+          }}
+        </h1>
+        <p class="subtitle">
+          {{
+          activeTab() === 'products'
+          ? 'Manage catalog, pricing variants, and stock health'
+          : activeTab() === 'categories'
+          ? 'Organize product hierarchies and taxonomy'
+          : activeTab() === 'orders'
+          ? 'Track customer orders and fulfill statuses'
+          : 'Analyze revenue streams, conversion metrics, and top sellers'
+          }}
+        </p>
+      </div>
+
+      <!-- Products header tools -->
+      <div class="header-actions" *ngIf="activeTab() === 'products'">
+        <div class="search-wrapper">
+          <span class="icon">🔍</span>
+          <input type="text" class="search-input" placeholder="Search products..." [ngModel]="searchTerm()"
+            (ngModelChange)="onSearchChange($event)" />
+        </div>
+
+        <button class="btn primary" (click)="openAddProduct()">
+          + Add product
+        </button>
+      </div>
+
+      <!-- Categories header tools -->
+      <div class="header-actions" *ngIf="activeTab() === 'categories'">
+        <input type="text" class="input" placeholder="New category name" [(ngModel)]="categoryForm.name" />
+        <input type="text" class="input" placeholder="Description (optional)" [(ngModel)]="categoryForm.description" />
+        <button class="btn primary" (click)="saveCategory()">
+          {{ editingCategoryId() ? 'Update category' : 'Save category' }}
+        </button>
+        <button class="btn ghost" *ngIf="editingCategoryId()" (click)="cancelEditCategory()">
+          Cancel
+        </button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <section class="content">
+      <!-- PRODUCTS TAB -->
+      <div *ngIf="activeTab() === 'products'">
+        <!-- KPI Scorecards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-label">
+              📦 Total Catalog
+            </span>
+            <span class="kpi-value">{{ totalElements() }}</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">✅ In Stock</span>
+            <span class="kpi-value text-green">
+              {{ inStockCount() }}
+            </span>
+
+            <span class="sub-text">
+              Products
+            </span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">⚠ Low Stock Alerts</span>
+            <span class="kpi-value text-orange">
+              {{ lowStockCount() }}
+            </span>
+
+            <span class="sub-text">
+              Products
+            </span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">❌ Out Of Stock
+            </span>
+            <span class="kpi-value text-red">
+              {{ outOfStockCount() }}
+            </span>
+
+            <span class="sub-text">
+              Products
+            </span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <span class="card-title">Product Catalog</span>
+              <span class="subtitle-chip" *ngIf="totalElements() && totalElements() > 0">
+                {{ totalElements() }} items active
+              </span>
+            </div>
+
+            <div class="header-right">
+              <select class="input sort-select" [ngModel]="currentSort" (ngModelChange)="changeSort($event)">
+                <option value="price,asc">Price: Low to High</option>
+                <option value="price,desc">Price: High to Low</option>
+                <option value="name,asc">Name: A → Z</option>
+                <option value="name,desc">Name: Z → A</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrapper" *ngIf="!loading(); else loadingTpl">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Visual</th>
+                  <th>Product Details</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Discount</th>
+                  <th>Stock Health</th>
+                  <th>Status</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr *ngFor="let p of products()">
+                  <td>
+                    <img [src]="productImageUrl(p.imageUrl)" loading="lazy" decoding="async" [alt]="p.name"
+                      class="product-thumb" />
+                  </td>
+
+                  <td>
+                    <div class="main-text">
+                      {{ p.name }}
+                      <span class="variant-count-pill" *ngIf="p.variants && p.variants.length > 0">
+                        {{ p.variants.length }} var
+                      </span>
+                    </div>
+                    <div class="sub-text line-clamp">
+                      {{ p.description }}
+                    </div>
+                  </td>
+
+                  <td>
+                    <span class="pill">
+                      {{ p.categoryName || 'Unassigned' }}
+                    </span>
+                  </td>
+
+                  <td>
+                    ₹{{ p.price | number : '1.2-2' }}
+                  </td>
+
+                  <td>
+                    <span class="sub-text" *ngIf="p.discountPercentage; else noDisc">
+                      {{ p.discountPercentage }}% off
+                    </span>
+                    <ng-template #noDisc><span class="text-muted">—</span></ng-template>
+                  </td>
+
+                  <td>
+                    <span class="badge" [class.badge-danger]="p.stock === 0"
+                      [class.badge-warning]="p.stock > 0 && p.stock < 10" [class.badge-success]="p.stock >= 10">
+                      {{ p.stock === 0 ? 'Out of Stock' : (p.stock < 10 ? 'Low Stock (' + p.stock + ')' : 'Available ('
+                        + p.stock + ')' ) }} </span>
+                  </td>
+
+                  <td>
+                    <span class="status-dot" [class.status-green]="p.status === 'IN_STOCK'"
+                      [class.status-red]="p.status === 'OUT_OF_STOCK'"></span>
+                    {{ p.status }}
+                  </td>
+
+                  <td class="text-right action-btns">
+                    <button class="btn ghost" (click)="openEditProduct(p)">
+                      Edit
+                    </button>
+                    <button class="btn danger ghost" (click)="deleteProduct(p.productId)">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+
+                <tr *ngIf="products().length === 0">
+                  <td colspan="8" class="empty-state">
+                    No matching products discovered in the catalog inventory.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <ng-template #loadingTpl>
+            <div class="loader">Loading secure catalog data...</div>
+          </ng-template>
+
+          <!-- Pagination -->
+          <div class="pagination" *ngIf="totalPages() > 1">
+            <button class="btn ghost" [disabled]="page() === 0" (click)="goPrevPage()">
+              ‹ Prev
+            </button>
+
+            <span class="page-info">
+              Page {{ page() + 1 }} of {{ totalPages() }}
+            </span>
+
+            <button class="btn ghost" [disabled]="page() >= totalPages() - 1" (click)="goNextPage()">
+              Next ›
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CATEGORIES TAB -->
+      <div *ngIf="activeTab() === 'categories'">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Catalog Taxonomy</span>
+            <span class="subtitle-chip" *ngIf="categories()?.length">
+              {{ categories().length }} categories registered
+            </span>
+          </div>
+
+          <div class="categories-grid-container">
+            <div class="categories-grid" *ngIf="categories().length > 0">
+              <div class="category-card" *ngFor="let c of pagedCategories()"
+                [class.editing]="editingCategoryId() === c.categoryId">
+                <div>
+                  <div class="main-text font-weight-bold">{{ c.name }}</div>
+                  <div class="sub-text mt-1">
+                    {{ c.description || 'No additional taxonomy details recorded.' }}
+                  </div>
+                </div>
+                <div class="category-meta-footer">
+                  <span class="badge badge-subtle">Active Taxonomy</span>
+                  <div class="category-actions">
+                    <button class="btn ghost small" (click)="editCategory(c)">Edit</button>
+                    <button class="btn danger ghost small" (click)="deleteCategory(c)">Delete</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="categories().length === 0" class="empty-state">
+              No categories configured. Define your primary taxonomy using the controls above.
+            </div>
+          </div>
+
+          <div class="pagination mt-4" *ngIf="categoriesTotalPages() > 1">
+            <button class="page-btn" [disabled]="categoriesCurrentPage() === 1"
+              (click)="goToCategoriesPage(categoriesCurrentPage() - 1)">← Prev</button>
+            <button *ngFor="let p of categoriesPageNumbers()" class="page-btn"
+              [class.active]="categoriesCurrentPage() === p" (click)="goToCategoriesPage(p)">{{ p }}</button>
+            <button class="page-btn" [disabled]="categoriesCurrentPage() === categoriesTotalPages()"
+              (click)="goToCategoriesPage(categoriesCurrentPage() + 1)">Next →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORDERS TAB -->
+      <div *ngIf="activeTab() === 'orders'">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Customer Order Fulfillment</span>
+            <span class="subtitle-chip" *ngIf="orders()?.length">
+              {{ orders().length }} transactions logged
+            </span>
+          </div>
+
+          <div class="orders-skeleton" *ngIf="ordersLoading()">
+            <div class="skeleton-row" *ngFor="let i of [1,2,3,4]"></div>
+          </div>
+
+          <div class="table-wrapper" *ngIf="!ordersLoading() && orders().length > 0">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Order Ref</th>
+                  <th>Timestamp</th>
+                  <th>Shipping Address</th>
+                  <th>Line Items</th>
+                  <th>Gross Amount</th>
+                  <th>Payment State</th>
+                  <th>Fulfillment Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let o of pagedOrders()">
+                  <td class="main-text font-mono">#{{ o.orderId }}</td>
+                  <td class="sub-text">{{ o.orderDate | date:'mediumDate' }}</td>
+                  <td class="sub-text line-clamp">{{ o.shippingAddress || 'No address provided' }}</td>
+                  <td class="sub-text">{{ o.items.length || 0 }} product(s)</td>
+                  <td class="main-text">₹{{ o.totalAmount | number : '1.2-2' }}</td>
+                  <td>
+                    <span class="status-badge" [attr.data-status]="o.paymentStatus">
+                      {{ o.paymentStatus }}
+                    </span>
+                  </td>
+                  <td>
+                    <select class="input status-select" [ngModel]="o.orderStatus"
+                      [disabled]="updatingOrderId() === o.orderId"
+                      (ngModelChange)="updateOrderStatus(o.orderId, $event)">
+                      <option *ngFor="let s of orderStatusOptions" [value]="s">{{ s }}</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="empty-state" *ngIf="!ordersLoading() && orders().length === 0">
+            No active customer fulfillment pipelines recorded.
+          </div>
+
+          <div class="pagination" *ngIf="!ordersLoading() && ordersTotalPages() > 1">
+            <button class="page-btn" [disabled]="ordersCurrentPage() === 1"
+              (click)="goToOrdersPage(ordersCurrentPage() - 1)">← Prev</button>
+            <button *ngFor="let p of ordersPageNumbers()" class="page-btn" [class.active]="ordersCurrentPage() === p"
+              (click)="goToOrdersPage(p)">{{ p }}</button>
+            <button class="page-btn" [disabled]="ordersCurrentPage() === ordersTotalPages()"
+              (click)="goToOrdersPage(ordersCurrentPage() + 1)">Next →</button>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ANALYTICS TAB -->
+      <div *ngIf="activeTab() === 'analytics'">
+
+        <div class="card">
+
+          <div class="card-header">
+            <span class="card-title">
+              Store Intelligence
+            </span>
+
+            <div class="range-picker">
+              <button class="btn ghost small" *ngFor="let r of [7,30,90]" [class.active]="analyticsRangeDays() === r"
+                (click)="setAnalyticsRange(r)">
+                {{ r }}d
+              </button>
+            </div>
+          </div>
+
+          <div class="analytics-skeleton" *ngIf="analyticsLoading()">
+
+            <div class="skeleton-row" *ngFor="let i of [1,2,3]">
+            </div>
+
+          </div>
+
+          <ng-container *ngIf="!analyticsLoading() && analytics() as a">
+
+            <!-- KPI CARDS -->
+
+            <div class="analytics-kpi-grid">
+
+              <div class="analytics-kpi-card">
+
+                <span class="analytics-kpi-label">
+                  💰 Revenue
+                </span>
+
+                <h2>
+                  ₹{{ a.totalRevenue | number:'1.2-2' }}
+                </h2>
+
+                <span class="trend positive">
+                  Revenue Stream
+                </span>
+
+              </div>
+
+              <div class="analytics-kpi-card">
+
+                <span class="analytics-kpi-label">
+                  🛒 Orders
+                </span>
+
+                <h2>
+                  {{ a.totalOrders }}
+                </h2>
+
+                <span class="trend positive">
+                  Active Fulfillment
+                </span>
+
+              </div>
+
+              <div class="analytics-kpi-card">
+
+                <span class="analytics-kpi-label">
+                  📈 Avg Basket
+                </span>
+
+                <h2>
+                  ₹{{ a.averageOrderValue | number:'1.2-2' }}
+                </h2>
+
+                <span class="trend">
+                  Per Order
+                </span>
+
+              </div>
+
+            </div>
+
+            <!-- ANALYTICS GRID -->
+
+            <div class="analytics-grid">
+
+              <!-- LEFT PANEL -->
+
+              <div class="analytics-panel">
+
+                <h3>
+                  Recent Revenue Activity
+                </h3>
+
+                <div class="revenue-activity-list">
+
+                  <div class="activity-card">
+
+                    <div>
+                      <span class="activity-date">
+                        Top Revenue Event
+                      </span>
+
+                      <h4>
+                        Induction Stove
+                      </h4>
+                    </div>
+
+                    <strong>
+                      ₹50,000
+                    </strong>
+
+                  </div>
+
+                  <div class="activity-card">
+
+                    <div>
+                      <span class="activity-date">
+                        Secondary Revenue
+                      </span>
+
+                      <h4>
+                        Silk Cotton
+                      </h4>
+                    </div>
+
+                    <strong>
+                      ₹6,000
+                    </strong>
+
+                  </div>
+
+                  <div class="activity-card">
+
+                    <div>
+                      <span class="activity-date">
+                        Additional Revenue
+                      </span>
+
+                      <h4>
+                        Barbie Doll
+                      </h4>
+                    </div>
+
+                    <strong>
+                      ₹2,726.75
+                    </strong>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <!-- RIGHT PANEL -->
+
+              <div class="analytics-panel">
+
+                <h3>
+                  Quick Insights
+                </h3>
+
+                <div class="insight-item">
+                  <span>Revenue</span>
+                  <strong>
+                    ₹{{ a.totalRevenue | number:'1.2-2' }}
+                  </strong>
+                </div>
+
+                <div class="insight-item">
+                  <span>Orders</span>
+                  <strong>
+                    {{ a.totalOrders }}
+                  </strong>
+                </div>
+
+                <div class="insight-item">
+                  <span>Average Basket</span>
+                  <strong>
+                    ₹{{ a.averageOrderValue | number:'1.2-2' }}
+                  </strong>
+                </div>
+
+                <div class="insight-item">
+                  <span>Best Seller</span>
+                  <strong>
+                    Induction Stove
+                  </strong>
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- TOP PRODUCTS -->
+
+            <div class="top-products-section">
+
+              <h3>
+                Top Revenue Generators
+              </h3>
+
+              <table class="table" *ngIf="a.topProducts.length > 0">
+
+                <thead>
+                  <tr>
+                    <th>Product Title</th>
+                    <th>Units Moved</th>
+                    <th>Generated Volume</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr *ngFor="let p of a.topProducts; let i = index">
+
+                    <td>
+
+                      <div class="product-cell">
+
+                        <div class="rank-badge">
+
+                          #{{ i + 1 }}
+
+                        </div>
+
+                        <span class="main-text">
+
+                          {{ p.productName }}
+
+                        </span>
+
+                      </div>
+
+                    </td>
+
+                    <td class="sub-text">
+                      {{ p.unitsSold }} units
+                    </td>
+
+                    <td class="main-text">
+                      ₹{{ p.revenue | number:'1.2-2' }}
+                    </td>
+
+                  </tr>
+                </tbody>
+
+              </table>
+
+              <div class="empty-state" *ngIf="a.topProducts.length === 0">
+
+                No product movement registered within this timeframe.
+
+              </div>
+
+            </div>
+
+          </ng-container>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- PRODUCT MODAL -->
+  <div class="modal-backdrop" *ngIf="isModalOpen()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>{{ isEditMode() ? 'Modify product parameters' : 'Register new catalog asset' }}</h2>
+        <button class="icon-btn" (click)="isModalOpen.set(false)">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Product Name</label>
+            <input class="input" [(ngModel)]="productForm.name" placeholder="e.g. Ergonomic Studio Desk" />
+          </div>
+
+          <div class="form-field">
+            <label>Base Price (₹)</label>
+            <input class="input" type="number" min="0" [(ngModel)]="productForm.price" />
+          </div>
+
+          <div class="form-field">
+            <label>Initial Stock Units</label>
+            <input class="input" type="number" min="0" [(ngModel)]="productForm.stock" />
+          </div>
+
+          <div class="form-field">
+            <label>Taxonomy Category</label>
+            <select class="input" [(ngModel)]="productForm.categoryId">
+              <option [ngValue]="0" disabled>Select structural category</option>
+              <option *ngFor="let c of categories()" [ngValue]="c.categoryId">
+                {{ c.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-field full">
+            <label>Detailed Description</label>
+            <textarea class="input" rows="3" [(ngModel)]="productForm.description"
+              placeholder="Highlight architecture, features, and specs..."></textarea>
+          </div>
+
+          <div class="form-field full">
+            <label>Product Visual Asset</label>
+            <div class="image-upload-row">
+              <div class="image-preview" *ngIf="productForm.imageUrl">
+                <img [src]="productImageUrl(productForm.imageUrl)" alt="Preview" />
+              </div>
+              <div class="image-upload-controls">
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="onImageSelected($event)"
+                  #imageInput hidden />
+                <button type="button" class="btn ghost" (click)="imageInput.click()" [disabled]="uploadingImage()">
+                  {{ uploadingImage() ? 'Uploading asset…' : (productForm.imageUrl ? 'Replace asset' : 'Upload asset')
+                  }}
+                </button>
+                <span class="upload-hint">Supported formats: JPG, PNG, WEBP, GIF (Max 5MB)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label>Fulfillment Availability</label>
+            <select class="input" [(ngModel)]="productForm.status">
+              <option [ngValue]="'IN_STOCK'">In Stock</option>
+              <option [ngValue]="'OUT_OF_STOCK'">Out of Stock</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label>Rating Index (0 - 5)</label>
+            <input type="number" class="input" min="0" max="5" step="0.1" [(ngModel)]="productForm.rating"
+              placeholder="4.8" />
+          </div>
+
+          <div class="form-field">
+            <label>Review Aggregate Count</label>
+            <input type="number" class="input" min="0" [(ngModel)]="productForm.reviewCount" placeholder="128" />
+          </div>
+
+          <div class="form-field">
+            <label>Active Markdown Discount (%)</label>
+            <input type="number" class="input" min="0" max="90" [(ngModel)]="productForm.discountPercentage"
+              placeholder="15" />
+          </div>
+        </div>
+
+        <div class="variant-editor mt-4">
+          <div class="variant-editor-header">
+            <label>Configuration Variants (Size / Color variations)</label>
+            <button type="button" class="btn ghost small" (click)="addVariantRow()">+ Add variant configuration</button>
+          </div>
+
+          <p class="variant-editor-hint" *ngIf="productForm.variants.length === 0">
+            No custom matrix variants configured. This listing fulfills using default master stock parameters.
+          </p>
+
+          <div class="variant-row" *ngFor="let v of productForm.variants; let i = index">
+            <input class="input" placeholder="Size (e.g. Large)" [(ngModel)]="v.size" [name]="'vsize' + i" />
+            <input class="input" placeholder="Color (e.g. Obsidian)" [(ngModel)]="v.color" [name]="'vcolor' + i" />
+            <input class="input" type="number" min="0" placeholder="Stock" [(ngModel)]="v.stock"
+              [name]="'vstock' + i" />
+            <input class="input" type="number" min="0" placeholder="Price Override" [(ngModel)]="v.priceOverride"
+              [name]="'vprice' + i" />
+            <input class="input" placeholder="SKU Code" [(ngModel)]="v.sku" [name]="'vsku' + i" />
+            <button type="button" class="remove-variant-btn" (click)="removeVariantRow(i)"
+              aria-label="Remove configuration">×</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn ghost" (click)="isModalOpen.set(false)">
+          Cancel
+        </button>
+        <button class="btn primary" (click)="saveProduct()">
+          {{ isEditMode() ? 'Commit changes' : 'Initialize product' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

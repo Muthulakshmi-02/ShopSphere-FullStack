@@ -1,0 +1,86 @@
+<div class="history-container">
+    <h1 class="page-title">My Order History</h1>
+
+    <div *ngIf="loading()" class="skeleton-loader">Loading your orders...</div>
+
+    <div *ngIf="!loading() && orders().length === 0" class="empty-orders">
+        <p>You haven't placed any orders yet.</p>
+        <button routerLink="/products">Start Shopping</button>
+    </div>
+
+    <div class="orders-list" *ngIf="orders().length > 0">
+        <div class="order-card" *ngFor="let order of pagedOrders()">
+            <div class="order-header">
+                <div class="header-main">
+                    <span class="order-number">Order #{{ order.orderId }}</span>
+                    <span class="order-date">{{ order.orderDate | date:'mediumDate' }}</span>
+                </div>
+                <div class="header-status">
+                    <span class="status-badge" [attr.data-status]="order.orderStatus">
+                        {{ order.orderStatus }}
+                    </span>
+                    <span class="status-badge" [attr.data-status]="order.paymentStatus">
+                        {{ order.paymentStatus }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="order-body">
+                <app-order-timeline [status]="order.orderStatus"></app-order-timeline>
+
+                <div class="item-row" *ngFor="let item of order.items">
+                    <img [src]="productImageUrl(item.imageUrl)" alt="product" loading="lazy" decoding="async">
+                    <div class="item-info">
+                        <p class="name">{{ item.productName }}</p>
+                        <p class="meta">Qty: {{ item.quantity }} | Price: {{ item.priceAtPurchase | currency }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="order-footer">
+                <div class="address-summary">
+                    <strong>Shipping to:</strong> {{ order.shippingAddress }}
+                </div>
+                <div class="total-summary">
+                    <span>Total Paid:</span>
+                    <strong>{{ order.totalAmount | currency }}</strong>
+                </div>
+                <button
+                    class="cancel-order-btn"
+                    *ngIf="canCancel(order)"
+                    [disabled]="cancellingOrderId() === order.orderId"
+                    (click)="cancelOrder(order)"
+                >
+                    {{ cancellingOrderId() === order.orderId ? 'Cancelling…' : 'Cancel order' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="pagination" *ngIf="!loading() && totalPages() > 1">
+        <button
+            class="page-btn"
+            [disabled]="currentPage() === 1"
+            (click)="goToPage(currentPage() - 1)"
+        >
+            ← Prev
+        </button>
+
+        <button
+            *ngFor="let p of pageNumbers()"
+            class="page-btn"
+            [class.active]="currentPage() === p"
+            (click)="goToPage(p)"
+        >
+            {{ p }}
+        </button>
+
+        <button
+            class="page-btn"
+            [disabled]="currentPage() === totalPages()"
+            (click)="goToPage(currentPage() + 1)"
+        >
+            Next →
+        </button>
+    </div>
+</div>

@@ -1,0 +1,75 @@
+<div class="wishlist-container">
+  <h1 class="page-title">My Wishlist</h1>
+
+  <!-- Not logged in -->
+  <div class="empty-state" *ngIf="!isLoggedIn">
+    <p>Log in to see items you've saved.</p>
+    <a routerLink="/login" class="primary-btn">Log In</a>
+  </div>
+
+  <!-- Loading skeleton -->
+  <div class="wishlist-skeleton" *ngIf="loading() && isLoggedIn">
+    <div class="skeleton-card" *ngFor="let i of [1,2,3,4]"></div>
+  </div>
+
+  <!-- Empty wishlist -->
+  <div class="empty-state" *ngIf="!loading() && isLoggedIn && items().length === 0">
+    <p>You haven't saved anything yet.</p>
+    <a routerLink="/products" class="primary-btn">Browse Products</a>
+  </div>
+
+  <!-- Wishlist grid -->
+  <div class="wishlist-grid" *ngIf="!loading() && items().length > 0">
+    <div class="wishlist-card" *ngFor="let item of items()">
+      <a [routerLink]="['/products', item.product.productId]" class="card-image-link">
+        <img
+          [src]="productImageUrl(item.product.imageUrl)"
+          [alt]="item.product.name"
+          loading="lazy"
+          decoding="async"
+        />
+        <span class="discount-badge" *ngIf="item.product.discountPercentage">
+          -{{ item.product.discountPercentage }}%
+        </span>
+      </a>
+
+      <div class="card-body">
+        <a [routerLink]="['/products', item.product.productId]" class="product-name">
+          {{ item.product.name }}
+        </a>
+
+        <div class="price-row">
+          <ng-container *ngIf="!item.product.discountPercentage">
+            <span class="final-price">{{ item.product.price | currency }}</span>
+          </ng-container>
+          <ng-container *ngIf="item.product.discountPercentage">
+            <span class="original-price">{{ item.product.price | currency }}</span>
+            <span class="final-price">{{ discountedPrice(item.product) | currency }}</span>
+          </ng-container>
+        </div>
+
+        <p class="stock-note" *ngIf="item.product.stock === 0">Out of stock</p>
+
+        <div class="card-actions">
+          <button
+            class="add-to-cart-btn"
+            [disabled]="item.product.stock === 0"
+            (click)="addToCart(item.product)"
+          >
+            {{ item.product.stock === 0 ? 'Out of Stock' : 'Add to Cart' }}
+          </button>
+          <button
+            class="remove-btn"
+            [disabled]="removingId() === item.product.productId"
+            (click)="remove(item)"
+            aria-label="Remove from wishlist"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 7h12v13a1 1 0 01-1 1H7a1 1 0 01-1-1V7zm3-3V3a1 1 0 011-1h4a1 1 0 011 1v1h4a1 1 0 010 2H4a1 1 0 010-2h4z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,68 @@
+<div class="login-wrapper">
+  <div class="login-container">
+    <!-- Brand -->
+    <div class="login-brand">
+      <div class="logo">🛒</div>
+      <h1>ShopSphere</h1>
+    </div>
+
+    <!-- Welcome -->
+    <div class="login-header">
+      <h2>Welcome Back</h2>
+      <p>Sign in to continue shopping</p>
+    </div>
+
+    <!-- Error -->
+    @if (errorMessage()) {
+      <div class="alert-error">{{ errorMessage() }}</div>
+    }
+
+    <!-- Form -->
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+      <div class="input-group">
+        <input 
+          type="email" 
+          formControlName="email" 
+          placeholder="Email"
+          [class.error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid"
+        />
+        @if (loginForm.get('email')?.touched && loginForm.get('email')?.invalid) {
+          <span class="error-text">Valid email required</span>
+        }
+      </div>
+
+      <div class="input-group">
+        <input 
+          [type]="showPassword() ? 'text' : 'password'"
+          formControlName="password" 
+          placeholder="Password"
+          [class.error]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid"
+        />
+        <button type="button" class="password-toggle" (click)="togglePasswordVisibility()">
+          👁️
+        </button>
+        @if (loginForm.get('password')?.touched && loginForm.get('password')?.invalid) {
+          <span class="error-text">Minimum 8 characters</span>
+        }
+      </div>
+
+      <button type="submit" [disabled]="isLoading() || loginForm.invalid">
+        @if (isLoading()) {
+          <span class="spinner"></span> Signing in...
+        } @else {
+          Sign In
+        }
+      </button>
+    </form>
+
+    <!-- Footer -->
+    <div class="login-footer">
+      <p>New user? <a routerLink="/register">Create account</a></p>
+    </div>
+
+    <!-- Demo - FIXED POSITION -->
+    <div class="demo-credentials">
+      👨‍💼 admin@shop.com / password123
+    </div>
+  </div>
+</div>

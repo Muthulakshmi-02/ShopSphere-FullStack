@@ -1,0 +1,234 @@
+<div class="checkout-container">
+  <div class="checkout-header">
+    <h1>Secure Checkout</h1>
+    @if (buyNowSummaryItem()) {
+    <div class="buy-now-notice">⚡ Buy Now Mode Active</div>
+    }
+  </div>
+
+  <div class="checkout-content">
+
+    <!-- LEFT COLUMN -->
+    <div class="checkout-form-section">
+
+      <!-- STEP 1: SHIPPING & PAYMENT METHOD -->
+      @if (step() === 'shipping') {
+      <h3>1. Shipping & Payment Details</h3>
+
+      @if (savedAddresses().length > 0) {
+      <div class="form-group">
+        <label>Saved Addresses</label>
+        <div class="saved-addresses">
+          @for (addr of savedAddresses(); track addr.addressId) {
+          <div class="address-card" [class.selected]="selectedAddressId() === addr.addressId"
+            (click)="selectAddress(addr)">
+            <div class="address-card-header">
+              <span class="address-label">{{ addr.label }}</span>
+              @if (addr.isDefault) {
+              <span class="default-pill">Default</span>
+              }
+            </div>
+            <p class="address-lines">{{ addr.shippingAddress }}, {{ addr.city }}, {{ addr.state }} - {{ addr.zipCode }}
+            </p>
+            <p class="address-phone">Phone: {{ addr.phoneNumber }}</p>
+          </div>
+          }
+        </div>
+        <button type="button" class="add-new-address-btn" (click)="useNewAddress()">+ Use a New Address</button>
+      </div>
+      }
+
+      @if (showNewAddressForm()) {
+      <div class="new-address-container">
+        <div class="form-group">
+          <label>Street Address</label>
+          <input type="text" class="form-control" [(ngModel)]="orderForm.shippingAddress" name="shippingAddress"
+            placeholder="Enter house/street address" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" class="form-control" [(ngModel)]="orderForm.city" name="city" placeholder="City"
+              required />
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" class="form-control" [(ngModel)]="orderForm.state" name="state" placeholder="State"
+              required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>PIN Code</label>
+            <input type="text" inputmode="numeric" maxlength="6" class="form-control" [(ngModel)]="orderForm.zipCode"
+              name="zipCode" placeholder="6-digit PIN code" required />
+          </div>
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input type="tel" maxlength="14" class="form-control" [(ngModel)]="orderForm.phoneNumber" name="phoneNumber"
+              placeholder="10-digit mobile number" required />
+          </div>
+        </div>
+
+        <!-- Shown for first-time users too (it was hidden when they had no saved addresses) -->
+        <div class="save-address-row">
+          <label class="save-address-checkbox">
+            <input type="checkbox" [(ngModel)]="saveNewAddress" name="saveNewAddress" /> Save this address for future
+            checkouts
+          </label>
+          @if (saveNewAddress) {
+          <div class="form-group" style="margin-top: 0.5rem;">
+            <input type="text" class="form-control" [(ngModel)]="newAddressLabel" name="newAddressLabel"
+              placeholder="Label (e.g., Home, Office)" />
+          </div>
+          }
+        </div>
+      </div>
+      }
+
+      <div class="form-group" style="margin-top: 2rem;">
+        <label>Select Payment Method</label>
+        <div class="form-row">
+          <label class="address-card" [class.selected]="orderForm.paymentMethod === 'CREDIT_CARD'"
+            (click)="orderForm.paymentMethod = 'CREDIT_CARD'" style="display: block; text-align: center;">
+            <strong>Credit / Debit Card</strong>
+            <p class="address-lines" style="margin-top: 0.2rem;">Secure via Razorpay</p>
+          </label>
+          <label class="address-card" [class.selected]="orderForm.paymentMethod === 'COD'"
+            (click)="orderForm.paymentMethod = 'COD'" style="display: block; text-align: center;">
+            <strong>Cash on Delivery</strong>
+            <p class="address-lines" style="margin-top: 0.2rem;">Pay when you receive</p>
+          </label>
+        </div>
+      </div>
+
+      <button type="button" class="confirm-order-btn" [disabled]="isProcessing() || promoChecking()"
+        (click)="confirmOrder()">
+        @if (isProcessing()) {
+        Processing Order...
+        } @else {
+        Proceed to Checkout
+        }
+      </button>
+      }
+
+      <!-- STEP 2: ONLINE PAYMENT -->
+      @if (step() === 'payment') {
+      <h3>2. Complete Online Payment</h3>
+
+      <div class="secure-payment-note">
+        🔒 Secure payment gateway powered by Razorpay. Complete your payment to confirm order #{{
+        pendingOrder()?.orderId }}.
+      </div>
+
+      <div class="review-block" style="margin-bottom: 1.5rem;">
+        <div class="review-block-header">
+          <span>Shipping Destination</span>
+          <button type="button" class="edit-btn" (click)="backToShipping()">Edit</button>
+        </div>
+        <p class="review-text">{{ orderForm.shippingAddress }}, {{ orderForm.city }}, {{ orderForm.state }} - {{
+          orderForm.zipCode }}</p>
+        <p class="review-phone">Phone: {{ orderForm.phoneNumber }}</p>
+      </div>
+
+      <!-- The amount the backend will actually charge -->
+      <div class="review-block" style="margin-bottom: 1.5rem;">
+        <div class="review-block-header">
+          <span>Amount payable</span>
+        </div>
+        <p class="review-text">{{ pendingOrder()?.totalAmount | currency:'INR' }}</p>
+      </div>
+
+      @if (priceMismatch()) {
+      <div class="payment-error">
+        ⚠ The amount on this order ({{ pendingOrder()?.totalAmount | currency:'INR' }}) does not match the total shown
+        in your summary ({{ cartFinalTotal() | currency:'INR' }}).
+        @if (blockPayment()) { Payment is paused so you are not charged the wrong amount. }
+      </div>
+      }
+
+      @if (paymentError()) {
+      <div class="payment-error">
+        {{ paymentError() }}
+      </div>
+      }
+
+      <button type="button" class="confirm-order-btn" [disabled]="isProcessing() || blockPayment()"
+        (click)="openRazorpayCheckout()">
+        @if (isProcessing()) {
+        Opening Gateway...
+        } @else {
+        Pay Now with Razorpay
+        }
+      </button>
+
+      <button type="button" class="back-to-shipping-btn" [disabled]="isProcessing()" (click)="backToShipping()">
+        Back to Shipping Details
+      </button>
+      }
+
+    </div>
+
+    <!-- RIGHT COLUMN: Order Summary -->
+    <div class="order-summary">
+      <h3>Order Summary</h3>
+
+      <div class="cart-items">
+        @if (buyNowSummaryItem(); as item) {
+        <div class="cart-item">
+          <div class="item-details">
+            <h4>{{ item.name }}</h4>
+            @if (item.variantLabel) {
+            <p>Variant: {{ item.variantLabel }}</p>
+            }
+            <p>Qty: {{ item.quantity }}</p>
+          </div>
+          <div class="item-price">
+            {{ item.price * item.quantity | currency:'INR' }}
+          </div>
+        </div>
+        } @else if (cart()?.items?.length) {
+        @for (cartItem of cart()?.items; track cartItem.productId) {
+        <div class="cart-item">
+          <div class="item-details">
+            <h4>{{ cartItem.productName }}</h4>
+            <p>Qty: {{ cartItem.quantity }}</p>
+          </div>
+          <div class="item-price">
+            {{ (cartItem.price * cartItem.quantity) | currency:'INR' }}
+          </div>
+        </div>
+        }
+        } @else {
+        <div class="empty-cart">
+          <p>Your cart is empty or loading...</p>
+        </div>
+        }
+      </div>
+
+      <div class="total-divider"></div>
+
+      <!-- Same breakdown for cart and Buy Now -->
+      <div class="total-row" style="padding: 0 0 0.75rem 0; font-size: 1rem;">
+        <span>Subtotal</span>
+        <span style="color: #F5F5F7;">{{ cartSubtotal() | currency:'INR' }}</span>
+      </div>
+
+      @if (appliedPromoCode() && discountAmount() > 0) {
+      <div class="total-row" style="padding: 0 0 0.75rem 0; font-size: 1rem;">
+        <span style="color: #10b981;">Discount ({{ appliedPromoCode() }})</span>
+        <span style="color: #10b981;">-{{ discountAmount() | currency:'INR' }}</span>
+      </div>
+      }
+
+      <div class="total-row">
+        <span>Total Amount</span>
+        <strong>{{ cartFinalTotal() | currency:'INR' }}</strong>
+      </div>
+
+    </div>
+
+  </div>
+</div>

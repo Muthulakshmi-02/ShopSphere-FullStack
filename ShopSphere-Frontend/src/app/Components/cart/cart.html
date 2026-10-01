@@ -1,0 +1,223 @@
+<!-- <div class="cart-wrapper">
+    <div class="cart-steps">
+        <span class="step active">01 Shopping Bag</span>
+        <span class="step-divider"></span>
+        <span class="step">02 Checkout</span>
+        <span class="step-divider"></span>
+        <span class="step">03 Confirmation</span>
+    </div>
+
+    <div class="cart-skeleton" *ngIf="initialLoading()">
+        <div class="skeleton-item" *ngFor="let i of [1,2,3]"></div>
+    </div>
+
+    <div class="cart-container" *ngIf="!initialLoading() && cart() && itemCount() > 0; else emptyState">
+        <div class="cart-grid">
+
+            <section class="items-section">
+                <div class="section-header">
+                    <h2>Your Selection <span class="count-pill">{{ itemCount() }}</span></h2>
+                    <button class="clear-all" (click)="clearCart()">Clear Bag</button>
+                </div>
+
+                <div class="item-card" *ngFor="let item of cart()?.items">
+                    <div class="item-img-box">
+                        <img [src]="productImageUrl(item.imageUrl)" alt="product" loading="lazy" decoding="async">
+                    </div>
+
+                    <div class="item-details">
+                        <div class="item-title-row">
+                            <h3 class="product-name">{{ item.productName }}</h3>
+                            <p class="variant-label" *ngIf="item.variantLabel">{{ item.variantLabel }}</p>
+                            <p class="product-total">{{ (item.price * item.quantity) | currency }}</p>
+                        </div>
+                        <p class="unit-price">Unit Price: {{ item.price | currency }}</p>
+
+                        <div class="item-actions">
+                            <div class="qty-picker">
+                                <button (click)="updateQty(item.productId, item.quantity, -1, item.variantId)"
+                                    class="qty-btn">−</button>
+                                <span class="qty-val">{{ item.quantity }}</span>
+                                <button (click)="updateQty(item.productId, item.quantity, 1, item.variantId)" class="qty-btn">+</button>
+                            </div>
+                            <button class="remove-link" (click)="remove(item.productId, item.variantId)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <a routerLink="/products" class="back-link">← Continue Shopping</a>
+            </section>
+
+            <aside class="summary-section">
+                <div class="summary-card">
+                    <h3>Order Summary</h3>
+                    <div class="summary-row">
+                        <span>Subtotal</span>
+                        <span>{{ cart()?.totalAmount | currency }}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Estimated Shipping</span>
+                        <span class="status-free">Calculated at checkout</span>
+                    </div>
+                    <div class="summary-row promo">
+                        <input type="text" placeholder="Promo Code">
+                        <button>Apply</button>
+                    </div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-row grand-total">
+                        <span>Total</span>
+                        <span>{{ cart()?.totalAmount | currency }}</span>
+                    </div>
+                    <button class="checkout-btn" [routerLink]="['/checkout']">
+                        Checkout Now
+                    </button>
+                    <div class="secure-badge">
+                        <i class="lock-icon">🔒</i> Secure Encrypted Checkout
+                    </div>
+                </div>
+            </aside>
+
+        </div>
+    </div>
+</div>
+
+<ng-template #emptyState>
+    <div class="empty-state" *ngIf="!initialLoading()">
+        <div class="empty-icon">🛍️</div>
+        <h2>Your bag is empty</h2>
+        <p>Look like you haven't added anything to your cart yet.</p>
+        <button routerLink="/products" class="btn-shop-now">Start Shopping</button>
+    </div>
+</ng-template> -->
+
+<div class="cart-wrapper">
+    <!-- Steps Progress Bar -->
+    <div class="cart-steps">
+        <span class="step active">01 Shopping Bag</span>
+        <span class="step-divider"></span>
+        <span class="step">02 Checkout</span>
+        <span class="step-divider"></span>
+        <span class="step">03 Confirmation</span>
+    </div>
+
+    <!-- Skeleton Loading State -->
+    <div class="cart-skeleton" *ngIf="initialLoading()">
+        <div class="skeleton-item" *ngFor="let i of [1,2,3]"></div>
+    </div>
+
+    <!-- Main Cart Container -->
+    <div class="cart-container" *ngIf="!initialLoading() && cart() && itemCount() > 0; else emptyState">
+        <div class="cart-grid">
+
+            <!-- Items Section -->
+            <section class="items-section">
+                <div class="cart-header-row">
+                    <h2 class="cart-title">Your Selection <span class="count-pill">{{ itemCount() }}</span></h2>
+                    <button class="btn-clear-bag" (click)="clearCart()">Clear Bag</button>
+                </div>
+
+                <div class="item-card" *ngFor="let item of cart()?.items">
+                    <div class="item-img-box">
+                        <img [src]="productImageUrl(item.imageUrl)" alt="product" loading="lazy" decoding="async">
+                    </div>
+
+                    <div class="item-details">
+                        <div class="item-title-row">
+                            <h3 class="product-name">{{ item.productName }}</h3>
+                            <p class="variant-label" *ngIf="item.variantLabel">{{ item.variantLabel }}</p>
+                            <p class="product-total">{{ (item.price * item.quantity) | currency:'INR':'symbol':'1.2-2'
+                                }}</p>
+                        </div>
+                        <p class="unit-price">Unit Price: {{ item.price | currency:'INR':'symbol':'1.2-2' }}</p>
+
+                        <div class="item-actions">
+                            <div class="qty-picker">
+                                <button (click)="updateQty(item.productId, item.quantity, -1, item.variantId)"
+                                    class="qty-btn">−</button>
+                                <span class="qty-val">{{ item.quantity }}</span>
+                                <button (click)="updateQty(item.productId, item.quantity, 1, item.variantId)"
+                                    class="qty-btn">+</button>
+                            </div>
+                            <button class="remove-link" (click)="remove(item.productId, item.variantId)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <a routerLink="/products" class="back-link">← Continue Shopping</a>
+            </section>
+
+            <!-- Order Summary Section -->
+            <aside class="summary-section">
+                <div class="summary-card">
+                    <h3 class="summary-title">Order Summary</h3>
+
+                    <div class="summary-row">
+                        <span>Subtotal</span>
+                        <span>{{ subtotal | currency:'INR':'symbol':'1.2-2' }}</span>
+                    </div>
+
+                    <!-- Dynamic Discount Breakdown -->
+                    <div class="summary-row discount-row" *ngIf="isPromoApplied">
+                        <span>Discount</span>
+                        <span>-{{ discountAmount | currency:'INR':'symbol':'1.2-2' }}</span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Estimated Shipping</span>
+                        <span class="status-free">Calculated at checkout</span>
+                    </div>
+
+                    <!-- Styled Promo Input Group -->
+                    <div class="promo-input-group">
+                        <input type="text" class="promo-input" placeholder="Promo Code" [(ngModel)]="promoCode"
+                            (keyup.enter)="applyPromo()">
+                        <button class="btn-apply-promo" (click)="applyPromo()">Apply</button>
+                    </div>
+
+                    <!-- Clickable Available Offer Badges -->
+                    <div class="available-offers">
+                        <span class="offer-title">Offers:</span>
+                        <button class="code-badge" (click)="selectPromo('WELCOME10')">
+                            WELCOME10
+                        </button>
+                        <button class="code-badge" (click)="selectPromo('SAVE20')">
+                            SAVE20
+                        </button>
+                    </div>
+
+                    <!-- Feedback message -->
+                    <p *ngIf="promoMessage" [class.success-text]="isPromoApplied" [class.error-text]="!isPromoApplied"
+                        class="promo-feedback">
+                        {{ promoMessage }}
+                    </p>
+
+                    <div class="summary-row grand-total">
+                        <span>Total</span>
+                        <span class="total-amount">{{ finalGrandTotal | currency:'INR':'symbol':'1.2-2' }}</span>
+                    </div>
+
+                    <!-- Bound to procedure handler that appends promo query params -->
+                    <button class="checkout-btn" (click)="proceedToCheckout()">
+                        Checkout Now
+                    </button>
+
+                    <div class="secure-tag">
+                        <i class="lock-icon">🔒</i> Secure Encrypted Checkout
+                    </div>
+                </div>
+            </aside>
+
+        </div>
+    </div>
+</div>
+
+<!-- Empty Cart State -->
+<ng-template #emptyState>
+    <div class="empty-state" *ngIf="!initialLoading()">
+        <div class="empty-icon">🛍️</div>
+        <h2>Your bag is empty</h2>
+        <p>Looks like you haven't added anything to your cart yet.</p>
+        <button routerLink="/products" class="checkout-btn" style="max-width: 200px; margin: 20px auto 0;">Start
+            Shopping</button>
+    </div>
+</ng-template>
