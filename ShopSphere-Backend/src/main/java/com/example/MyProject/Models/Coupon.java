@@ -22,8 +22,11 @@ public class Coupon {
     @Column(nullable = false)
     private String type; // "percent" or "flat"
 
+    // percent: store a FRACTION (0.10 = 10%). flat: rupees (100.0 = ₹100).
     @Column(nullable = false)
-    private Double value; // e.g., 0.20 for 20% or 100.0 for ₹100
+    private Double value;
 
+    // Without @Builder.Default, Coupon.builder().build() produced active=false.
+    @Builder.Default
     private boolean active = true;
 }
