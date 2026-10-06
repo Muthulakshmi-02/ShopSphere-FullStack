@@ -155,6 +155,7 @@
 //                : principal.toString();
 //    }
 //}
+
 package com.example.MyProject.Services;
 
 import com.example.MyProject.Enum.OrderStatus;
@@ -167,12 +168,13 @@ import com.example.MyProject.Repository.PaymentRepository;
 import com.razorpay.RazorpayException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.example.MyProject.Services.OrderEmailEvent;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -185,6 +187,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final RazorpayService razorpayService;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public RazorpayOrderResponse createRazorpayOrder(Long orderId) {
@@ -203,34 +206,38 @@ public class PaymentService {
             throw new IllegalStateException("This is a Cash on Delivery order; no online payment is needed");
         }
 
+        String receipt = "order_" + order.getOrderId();
+        long amountInPaise = Math.round(order.getTotalAmount() * 100);
+
+        // Reuse the Razorpay order if one already exists for this order: clicking "Pay"
+        // twice must not create a second one (a payment against an older one could
+        // otherwise never be matched back to this order).
+        String razorpayOrderId = order.getRazorpayOrderId();
         try {
-            String receipt = "order_" + order.getOrderId();
-            BigDecimal amountInRupees = BigDecimal.valueOf(order.getTotalAmount());
-
-            String razorpayOrderId = razorpayService.createOrder(amountInRupees, receipt);
-
-            // Remember WHICH Razorpay order belongs to this order, so verify can
-            // refuse a payment made against a different (cheaper) Razorpay order.
-            order.setRazorpayOrderId(razorpayOrderId);
-            orderRepository.save(order);
-
-            return RazorpayOrderResponse.builder()
-                    .razorpayOrderId(razorpayOrderId)
-                    .amountInPaise(Math.round(order.getTotalAmount() * 100))
-                    .currency("INR")
-                    .keyId(razorpayService.getPublicKeyId())
-                    .orderReceipt(receipt)
-                    .build();
+            if (razorpayOrderId == null) {
+                razorpayOrderId = razorpayService.createOrder(BigDecimal.valueOf(order.getTotalAmount()), receipt);
+                order.setRazorpayOrderId(razorpayOrderId);
+                orderRepository.save(order);
+            }
         } catch (RazorpayException e) {
             log.error("Razorpay order creation failed for order {}: {}", order.getOrderId(), e.getMessage(), e);
             throw new IllegalArgumentException("Could not start payment right now. Please check your Razorpay credentials.");
         }
+
+        return RazorpayOrderResponse.builder()
+                .razorpayOrderId(razorpayOrderId)
+                .amountInPaise(amountInPaise)
+                .currency("INR")
+                .keyId(razorpayService.getPublicKeyId())
+                .orderReceipt(receipt)
+                .build();
     }
 
-    // noRollbackFor: so the FAILED payment record is actually saved before we throw.
+    // Browser callback path. noRollbackFor so a FAILED attempt is still recorded.
     @Transactional(noRollbackFor = IllegalStateException.class)
     public PaymentResponse verifyAndSavePayment(PaymentRequest request) {
-        Order order = orderRepository.findById(request.getOrderId())
+        // Row lock: the webhook may be processing the same order at the same moment.
+        Order order = orderRepository.findByIdForUpdate(request.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + request.getOrderId()));
 
         assertOwner(order, "verify payment for");
@@ -241,14 +248,9 @@ public class PaymentService {
         if (order.getOrderStatus() == OrderStatus.CANCELLED) {
             throw new IllegalStateException("This order was cancelled and can no longer be paid");
         }
-
-        // Only Razorpay is supported. The old "else: trust request.status" branch let
-        // anyone mark an order PAID without paying, so it is gone.
         if (!"RAZORPAY".equalsIgnoreCase(request.getPaymentGateway())) {
             throw new IllegalStateException("Unsupported payment gateway");
         }
-
-        // The Razorpay order in the proof must be the one we created for THIS order.
         if (order.getRazorpayOrderId() == null
                 || !order.getRazorpayOrderId().equals(request.getRazorpayOrderId())) {
             throw new IllegalStateException("Payment does not match this order");
@@ -257,28 +259,16 @@ public class PaymentService {
         boolean isReallyPaid = razorpayService.verifySignature(
                 request.getRazorpayOrderId(),
                 request.getRazorpayPaymentId(),
-                request.getRazorpaySignature()
-        );
-
-        PaymentDetail payment = PaymentDetail.builder()
-                .order(order)
-                .transactionId(isReallyPaid ? request.getRazorpayPaymentId() : request.getTransactionId())
-                .paymentGateway("RAZORPAY")
-                .paymentMethod(request.getPaymentMethod())
-                .amount(order.getTotalAmount())
-                .status(isReallyPaid ? "COMPLETED" : "FAILED")
-                .build();
-        paymentRepository.save(payment);
+                request.getRazorpaySignature());
 
         if (!isReallyPaid) {
+            savePaymentRecord(order, request.getTransactionId(), request.getPaymentMethod(), "FAILED");
             throw new IllegalStateException("Payment verification failed. Please try again or contact support.");
         }
 
-        order.setPaymentStatus(PaymentStatus.PAID);
-        order.setRazorpayPaymentId(request.getRazorpayPaymentId());
-        if (order.getOrderStatus() == OrderStatus.PENDING) {
-            order.setOrderStatus(OrderStatus.CONFIRMED);   // confirmed only once paid
-        }
+        PaymentDetail payment = savePaymentRecord(order, request.getRazorpayPaymentId(),
+                request.getPaymentMethod(), "COMPLETED");
+        markPaid(order, request.getRazorpayPaymentId());
         orderRepository.save(order);
 
         List<ProductSummary> items = order.getOrderItems().stream()
@@ -297,9 +287,72 @@ public class PaymentService {
                 .build();
     }
 
+    /**
+     * Webhook path (payment.captured / order.paid). Safe to call repeatedly:
+     * Razorpay retries, and the browser callback may have already done the work.
+     */
+    @Transactional
+    public void handleCapturedPayment(String razorpayOrderId, String razorpayPaymentId,
+                                      long amountPaise, String method) {
+        Order order = orderRepository.findByRazorpayOrderIdForUpdate(razorpayOrderId).orElse(null);
+        if (order == null) {
+            log.warn("Webhook: no order found for Razorpay order {} (payment {}). Reconcile manually.",
+                    razorpayOrderId, razorpayPaymentId);
+            return;
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.PAID
+                || order.getPaymentStatus() == PaymentStatus.REFUND_PENDING) {
+            log.info("Webhook: order {} already handled ({}), ignoring", order.getOrderId(), order.getPaymentStatus());
+            return;
+        }
+
+        long expected = Math.round(order.getTotalAmount() * 100);
+        if (expected != amountPaise) {
+            log.error("Webhook: amount mismatch on order {} (expected {} paise, got {}). NOT marking paid.",
+                    order.getOrderId(), expected, amountPaise);
+            return;
+        }
+
+        savePaymentRecord(order, razorpayPaymentId, method == null ? "ONLINE" : method.toUpperCase(), "COMPLETED");
+
+        if (order.getOrderStatus() == OrderStatus.CANCELLED) {
+            // Money was captured for an order we already cancelled (stock restored).
+            // We cannot fulfil it, so flag it for refund.
+            order.setRazorpayPaymentId(razorpayPaymentId);
+            order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+            log.warn("Webhook: payment {} captured for CANCELLED order {}. Marked REFUND_PENDING - refund it in Razorpay.",
+                    razorpayPaymentId, order.getOrderId());
+        } else {
+            markPaid(order, razorpayPaymentId);
+            log.info("Webhook: order {} marked PAID via payment {}", order.getOrderId(), razorpayPaymentId);
+        }
+        orderRepository.save(order);
+    }
+
+    /** Shared by the browser and webhook paths: PAID, PENDING -> CONFIRMED, email after commit. */
+    private void markPaid(Order order, String razorpayPaymentId) {
+        order.setPaymentStatus(PaymentStatus.PAID);
+        order.setRazorpayPaymentId(razorpayPaymentId);
+        if (order.getOrderStatus() == OrderStatus.PENDING) {
+            order.setOrderStatus(OrderStatus.CONFIRMED);
+        }
+        events.publishEvent(new OrderEmailEvent(order.getOrderId(), OrderEmailEvent.Type.CONFIRMATION));
+    }
+
+    private PaymentDetail savePaymentRecord(Order order, String transactionId, String method, String status) {
+        return paymentRepository.save(PaymentDetail.builder()
+                .order(order)
+                .transactionId(transactionId)
+                .paymentGateway("RAZORPAY")
+                .paymentMethod(method)
+                .amount(order.getTotalAmount())
+                .status(status)
+                .build());
+    }
+
     private void assertOwner(Order order, String action) {
         String callerEmail = getAuthenticatedEmail();
-        // A missing user is now rejected instead of silently skipping the check.
         if (order.getUser() == null || !order.getUser().getEmail().equalsIgnoreCase(callerEmail)) {
             throw new AccessDeniedException("You are not authorized to " + action + " this order");
         }

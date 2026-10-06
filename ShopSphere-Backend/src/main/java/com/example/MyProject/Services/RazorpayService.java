@@ -161,14 +161,15 @@ public class RazorpayService {
     @Value("${razorpay.key.secret}")
     private String keySecret;
 
-    /**
-     * Creates a Razorpay order for the given amount in Rupees.
-     * Converts rupees to paise (smallest currency unit) automatically.
-     */
+    // Separate from the API key secret: you choose it when creating the webhook
+    // in the Razorpay dashboard. Empty = every webhook is rejected.
+    @Value("${razorpay.webhook.secret:}")
+    private String webhookSecret;
+
+    /** Creates a Razorpay order for an amount in Rupees (converted to paise). */
     public String createOrder(BigDecimal amountInRupees, String receipt) throws RazorpayException {
         RazorpayClient client = new RazorpayClient(keyId, keySecret);
 
-        // Safely convert Rupees to Paise (e.g. 1000.00 -> 100000)
         long amountInPaise = amountInRupees
                 .setScale(2, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
@@ -178,17 +179,13 @@ public class RazorpayService {
         orderRequest.put("amount", amountInPaise);
         orderRequest.put("currency", "INR");
         orderRequest.put("receipt", receipt);
-
-        // Note: Automatic capture flag for Razorpay payments
         orderRequest.put("payment_capture", 1);
 
         com.razorpay.Order order = client.orders.create(orderRequest);
         return order.get("id");
     }
 
-    /**
-     * Verifies HMAC signature returned by Razorpay Checkout
-     */
+    /** Verifies the HMAC signature returned to the browser by Razorpay Checkout. */
     public boolean verifySignature(String razorpayOrderId, String razorpayPaymentId, String razorpaySignature) {
         try {
             JSONObject payload = new JSONObject();
@@ -196,6 +193,18 @@ public class RazorpayService {
             payload.put("razorpay_payment_id", razorpayPaymentId);
             payload.put("razorpay_signature", razorpaySignature);
             return Utils.verifyPaymentSignature(payload, keySecret);
+        } catch (RazorpayException e) {
+            return false;
+        }
+    }
+
+    /** Verifies the X-Razorpay-Signature header of a webhook against the RAW request body. */
+    public boolean verifyWebhookSignature(String rawBody, String signature) {
+        if (webhookSecret == null || webhookSecret.isBlank()) {
+            return false;
+        }
+        try {
+            return Utils.verifyWebhookSignature(rawBody, signature, webhookSecret);
         } catch (RazorpayException e) {
             return false;
         }
