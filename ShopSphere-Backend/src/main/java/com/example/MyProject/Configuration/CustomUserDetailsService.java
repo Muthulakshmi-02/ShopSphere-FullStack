@@ -1,17 +1,18 @@
 package com.example.MyProject.Configuration;
+
 import com.example.MyProject.Models.User;
 import com.example.MyProject.Repository.UserRepository;
-import org.springframework.context.MessageSource;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.support.ReloadableResourceBundleMessageSource;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+
 import java.util.Collections;
-@Configuration
+
+// Was annotated @Configuration AND @Service (a service must not be a configuration class),
+// and contained a dead inner "MessageConfig" that Spring never registered as a bean.
+// Spring Boot already auto-configures a MessageSource from messages.properties.
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
@@ -26,24 +27,11 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
-        // Convert User entity to Spring Security UserDetails
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())
                 .password(user.getPassword())
                 .authorities(Collections.singletonList(
-                        new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
-                ))
+                        new SimpleGrantedAuthority("ROLE_" + user.getRole().name())))
                 .build();
     }
-    public class MessageConfig {
-
-        @Bean
-        public MessageSource messageSource() {
-            ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
-            messageSource.setBasename("classpath:messages");
-            messageSource.setDefaultEncoding("UTF-8");
-            return messageSource;
-        }
-    }
-
 }

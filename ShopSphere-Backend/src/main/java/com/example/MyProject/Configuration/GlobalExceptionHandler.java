@@ -3,10 +3,15 @@ package com.example.MyProject.Configuration;
 import com.example.MyProject.Exception.CartBusinessException;
 import com.example.MyProject.Exception.ResourceNotFoundException;
 import com.example.MyProject.User.Dto.ApiResponse;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -17,57 +22,61 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.stream.Collectors;
 
 /**
- * Central place that turns every exception thrown by a controller/service
- * into the same {@link ApiResponse} JSON shape the frontend already expects
- * (it reads {@code err.error?.message} everywhere). Without this, Spring
- * Boot's default error handler returns a generic body with no "message"
- * field (message inclusion is disabled by default for security), so every
- * specific, helpful exception message in the app - "out of stock", "order
- * not found", "cart is empty", etc. - was silently being replaced by the
- * frontend's generic fallback text before this existed.
+ * Turns every exception into the same ApiResponse JSON the frontend reads
+ * (err.error?.message).
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    // --- Domain "not found" errors -> 404 ---
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Object>> handleNotFound(ResourceNotFoundException ex) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    // --- Domain business-rule violations (out of stock, duplicate item, etc.) -> 400 ---
     @ExceptionHandler(CartBusinessException.class)
     public ResponseEntity<ApiResponse<Object>> handleCartBusiness(CartBusinessException ex) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    // --- State conflicts (e.g. paying for an already-paid order) -> 409 ---
+    // State conflicts (e.g. paying for an already-paid order) -> 409
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalState(IllegalStateException ex) {
         return build(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    // --- Authorization failures (e.g. IDOR checks) -> 403 ---
+    // NEW: PaymentService throws IllegalArgumentException with user-friendly messages
+    // ("Order not found...", "Could not start payment right now..."). These used to fall
+    // through to the catch-all and become a generic 500.
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    // NEW: unique-constraint races (two simultaneous registrations, deleting something
+    // still referenced...) -> 409 instead of a raw 500.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT,
+                "This action conflicts with existing data (for example a duplicate value, or an item that is still in use).");
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, "You are not authorized to perform this action.");
     }
 
-    // --- Bad credentials on login -> 401 with a clean message instead of a stack trace ---
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Object>> handleBadCredentials(BadCredentialsException ex) {
         return build(HttpStatus.UNAUTHORIZED, "Invalid email or password.");
     }
 
-    // --- @Valid bean validation failures on request DTOs -> 400 with field-level messages ---
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -77,22 +86,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildRaw(HttpStatus.BAD_REQUEST, message.isBlank() ? "Validation failed." : message);
     }
 
-    // --- @Validated path/query param validation failures -> 400 ---
+    // Only the human-readable messages, not "register.dto.email: ..." property paths.
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleConstraintViolation(ConstraintViolationException ex) {
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage());
+        String message = ex.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining("; "));
+        return build(HttpStatus.BAD_REQUEST, message.isBlank() ? "Validation failed." : message);
     }
 
-    // --- File too large during upload (e.g. product image over the configured limit) -> 400 ---
-    // This overrides the protected hook ResponseEntityExceptionHandler itself
-    // calls internally for this exception (confirmed from Spring's source:
-    // handleException() delegates to handleMaxUploadSizeExceededException()).
-    // A plain @ExceptionHandler(MaxUploadSizeExceededException.class) here
-    // would register a SECOND, competing mapping for the same exception
-    // type and fail app startup with "Ambiguous @ExceptionHandler method
-    // mapped" - overriding the existing hook is the correct fix, same
-    // pattern as handleMethodArgumentNotValid/handleHttpMessageNotReadable
-    // below.
     @Override
     protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
             org.springframework.web.multipart.MaxUploadSizeExceededException ex,
@@ -100,14 +102,30 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildRaw(HttpStatus.BAD_REQUEST, "Image is too large - max size is 5MB.");
     }
 
-    // --- Malformed JSON body / wrong enum value etc. -> 400 instead of a raw 500 ---
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return buildRaw(HttpStatus.BAD_REQUEST, "The request body is malformed or contains an invalid value.");
     }
 
-    // --- Anything else: don't leak internals, but do log server-side for debugging ---
+    // NEW: everything ResponseEntityExceptionHandler handles itself (405 wrong method, 415,
+    // missing parameter, bad path variable such as /products/abc, unknown URL...) used to
+    // return Spring's ProblemDetail, which has "detail" but no "message", so the frontend
+    // lost the text. This puts all of them into the ApiResponse shape too.
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(
+            Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
+        String message = (body instanceof ProblemDetail pd && pd.getDetail() != null)
+                ? pd.getDetail()
+                : "Request failed.";
+        if (statusCode.is5xxServerError()) {
+            log.error("Server error", ex);
+            message = "Something went wrong. Please try again.";
+        }
+        ApiResponse<Object> payload = ApiResponse.builder().success(false).data(null).message(message).build();
+        return ResponseEntity.status(statusCode).headers(headers).body(payload);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleUnexpected(Exception ex) {
         log.error("Unhandled exception", ex);
@@ -115,28 +133,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private ResponseEntity<ApiResponse<Object>> build(HttpStatus status, String message) {
-        ApiResponse<Object> body = ApiResponse.builder()
-                .success(false)
-                .data(null)
-                .message(message)
-                .build();
+        ApiResponse<Object> body = ApiResponse.builder().success(false).data(null).message(message).build();
         return ResponseEntity.status(status).body(body);
     }
 
-    // Same body shape as build(), but typed ResponseEntity<Object> instead
-    // of ResponseEntity<ApiResponse<Object>> - required specifically for
-    // handleMethodArgumentNotValid/handleHttpMessageNotReadable, since
-    // they override methods on ResponseEntityExceptionHandler that are
-    // declared to return ResponseEntity<Object>. Java generics are
-    // invariant, so ResponseEntity<ApiResponse<Object>> cannot be returned
-    // where ResponseEntity<Object> is expected, even though ApiResponse<Object>
-    // IS an Object - that was the exact compile error being fixed here.
+    // Same body, typed ResponseEntity<Object> for the overridden superclass hooks.
     private ResponseEntity<Object> buildRaw(HttpStatus status, String message) {
-        ApiResponse<Object> body = ApiResponse.builder()
-                .success(false)
-                .data(null)
-                .message(message)
-                .build();
+        ApiResponse<Object> body = ApiResponse.builder().success(false).data(null).message(message).build();
         return ResponseEntity.status(status).body(body);
     }
 }

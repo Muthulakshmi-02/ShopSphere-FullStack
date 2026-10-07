@@ -629,13 +629,17 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.context.ApplicationEventPublisher;
+// Add import for OrderEmailEvent if it is in another package:
+ import com.example.MyProject.Services.OrderEmailEvent;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
-
+import java.util.Map;
+import java.util.Set;
+ 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -651,6 +655,16 @@ public class OrderService {
     private final MessageSource messageSource;
     private final PricingService pricing;
     private final PromoService promoService;
+    private final ApplicationEventPublisher events;
+    // constant to add inside the class
+ private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
+        OrderStatus.PENDING,   Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
+        OrderStatus.CONFIRMED, Set.of(OrderStatus.SHIPPED,   OrderStatus.CANCELLED),
+        OrderStatus.SHIPPED,   Set.of(OrderStatus.DELIVERED),
+        OrderStatus.DELIVERED, Set.of(),
+        OrderStatus.CANCELLED, Set.of()
+);
+ 
 
     @Transactional
     public OrderResponse checkout(OrderRequest request) {
@@ -812,19 +826,46 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional
-    public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-
-        if (newStatus == OrderStatus.CANCELLED) {
-            cancelInternal(order);
-        } else {
-            order.setOrderStatus(newStatus);
-        }
-        return mapToResponse(orderRepository.save(order));
+@Transactional
+public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
+    Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+ 
+    OrderStatus current = order.getOrderStatus();
+    if (current == newStatus) {
+        return mapToResponse(order);   // nothing to do, no duplicate email
     }
-
+ 
+    if (!ALLOWED_TRANSITIONS.getOrDefault(current, Set.of()).contains(newStatus)) {
+        throw new CartBusinessException(
+                "An order that is " + current + " cannot be changed to " + newStatus + ".");
+    }
+ 
+    boolean cod = "COD".equalsIgnoreCase(order.getPaymentMethod());
+    boolean paid = order.getPaymentStatus() == PaymentStatus.PAID;
+    boolean needsPayment = newStatus == OrderStatus.CONFIRMED
+            || newStatus == OrderStatus.SHIPPED
+            || newStatus == OrderStatus.DELIVERED;
+    if (needsPayment && !cod && !paid) {
+        throw new CartBusinessException(
+                "This card order has not been paid yet, so it cannot be moved to " + newStatus + ".");
+    }
+ 
+    if (newStatus == OrderStatus.CANCELLED) {
+        cancelInternal(order);
+    } else {
+        order.setOrderStatus(newStatus);
+        if (newStatus == OrderStatus.DELIVERED && cod) {
+            order.setPaymentStatus(PaymentStatus.PAID);   // cash collected on delivery
+        }
+    }
+ 
+    Order saved = orderRepository.save(order);
+    events.publishEvent(new OrderEmailEvent(saved.getOrderId(),
+            newStatus == OrderStatus.CANCELLED ? OrderEmailEvent.Type.CANCELLED
+                                               : OrderEmailEvent.Type.STATUS_UPDATE));
+    return mapToResponse(saved);
+}
     @Transactional
     public OrderResponse cancelMyOrder(Long orderId) {
         User user = getAuthenticatedUser();

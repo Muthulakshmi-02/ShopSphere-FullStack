@@ -1,7 +1,8 @@
 package com.example.MyProject.Controller;
 
-import com.example.MyProject.User.Dto.*;
 import com.example.MyProject.Services.UserService;
+import com.example.MyProject.User.Dto.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -9,15 +10,15 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-// NOTE: CORS is already handled globally by SecurityConfig.corsConfigurationSource().
-// The old @CrossOrigin(origins = "https://localhost:4500") here pointed at https
-// while the app runs on http, which could break preflight requests for login/register.
+// CORS is handled globally by SecurityConfig.corsConfigurationSource().
 public class UserController {
 
     private final UserService userService;
 
+    // @Valid was missing on both: the validation annotations on the DTOs never ran,
+    // so a 1-character password was accepted.
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserResponseDTO>> register(@RequestBody RegisterUserDto dto) {
+    public ResponseEntity<ApiResponse<UserResponseDTO>> register(@Valid @RequestBody RegisterUserDto dto) {
         ApiResponse<UserResponseDTO> response = userService.registerUser(dto);
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
@@ -26,7 +27,7 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponseDTO>> login(@RequestBody LoginUserDto dto) {
+    public ResponseEntity<ApiResponse<LoginResponseDTO>> login(@Valid @RequestBody LoginUserDto dto) {
         ApiResponse<LoginResponseDTO> response = userService.loginUser(dto);
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);

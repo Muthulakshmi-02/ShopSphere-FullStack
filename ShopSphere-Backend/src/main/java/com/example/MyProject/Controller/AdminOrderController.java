@@ -11,11 +11,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+// @CrossOrigin removed: CORS is handled globally in SecurityConfig.
 @RestController
 @RequestMapping("/api/admin/orders")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
-@CrossOrigin(origins = "http://localhost:4500", allowCredentials = "true")
 public class AdminOrderController {
 
     private final OrderService orderService;
@@ -26,8 +26,10 @@ public class AdminOrderController {
         return ResponseEntity.ok(new ApiResponse<>(true, allOrders, "All orders fetched successfully"));
     }
 
+    // Which changes are allowed is decided in OrderService.updateOrderStatus (see the patch file).
     @PutMapping("/{orderId}/status")
-    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(@PathVariable Long orderId, @RequestParam OrderStatus status) {
+    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
+            @PathVariable Long orderId, @RequestParam OrderStatus status) {
 
         OrderResponse response = orderService.updateOrderStatus(orderId, status);
         return ResponseEntity.ok(new ApiResponse<>(true, response, "Order status updated to " + status));
