@@ -1,5 +1,4 @@
 package com.example.MyProject.Services;
-
 import com.example.MyProject.Analytics.dto.AnalyticsResponse;
 import com.example.MyProject.Enum.PaymentStatus;
 import com.example.MyProject.Models.Order;
@@ -8,7 +7,6 @@ import com.example.MyProject.Repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -80,7 +78,6 @@ public class AnalyticsService {
 
     /** Top-selling products by revenue, aggregated across every line item in every paid order in range. */
     private List<AnalyticsResponse.TopProductPoint> buildTopProducts(List<Order> orders) {
-        Map<Long, AnalyticsResponse.TopProductPoint> byProduct = new LinkedHashMap<>();
         Map<Long, Integer> unitsByProduct = new HashMap<>();
         Map<Long, Double> revenueByProduct = new HashMap<>();
         Map<Long, String> nameByProduct = new HashMap<>();
