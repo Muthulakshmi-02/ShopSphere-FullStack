@@ -1,5 +1,6 @@
 package com.example.MyProject.Models;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -63,7 +64,9 @@ public class PaymentDetail {
     /**
      * Capture the currency for international stores.
      */
-    @Column(length = 3)
+    @Size(min = 3, max = 3, message = "Currency code must be exactly 3 characters")
+    @Column(name = "currency", length = 3, nullable = false)
+    @Builder.Default
     private String currency = "INR";
 
     @CreatedDate

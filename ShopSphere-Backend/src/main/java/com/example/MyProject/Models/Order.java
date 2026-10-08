@@ -145,7 +145,8 @@ public class Order {
 
     @Column(name = "promo_code")
     private String promoCode;
-
+    
+    @Builder.Default
     @Column(name = "discount_amount")
     private Double discountAmount = 0.0;
 
