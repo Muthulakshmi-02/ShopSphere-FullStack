@@ -14,7 +14,6 @@ import com.example.MyProject.Repository.CartItemRepository;
 import com.example.MyProject.Repository.CategoryRepository;
 import com.example.MyProject.Repository.OrderItemRepository;
 import com.example.MyProject.Repository.ProductRepository;
-import com.example.MyProject.Repository.ProductVariantRepository;
 import com.example.MyProject.Repository.WishlistRepository;
 import com.example.MyProject.User.Dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
