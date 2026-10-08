@@ -2,6 +2,7 @@ package com.example.MyProject.Services;
 
 import com.example.MyProject.Enum.ProductStatus;
 import com.example.MyProject.Exception.CartBusinessException;
+import com.example.MyProject.Exception.ResourceNotFoundException;
 import com.example.MyProject.Models.Category;
 import com.example.MyProject.Models.Product;
 import com.example.MyProject.Models.ProductVariant;
@@ -24,10 +25,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,9 +40,12 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final WishlistRepository wishlistRepository;
     private final CartItemRepository cartItemRepository;
-    private final OrderItemRepository orderItemRepository;
+    private final OrderItemRepository orderItemRepositsory;
     private final ProductVariantRepository productVariantRepository;
     private final MessageSource messageSource;
+    private final PricingService pricing;
+  
+
     @Transactional(readOnly = true)
     public ApiResponse<Page<ProductResponse>> getFilteredProducts(
             String keyword, Long categoryId, Double min, Double max, Pageable pageable) {
@@ -49,11 +53,12 @@ public class ProductService {
         String search = (keyword == null) ? "" : keyword;
         Page<Product> products;
 
+        // Filtering uses effectivePrice (what the customer pays), matching the sort order.
         if (categoryId != null) {
-            products = productRepository.findByNameContainingIgnoreCaseAndCategory_CategoryIdAndPriceBetween(
+            products = productRepository.findByNameContainingIgnoreCaseAndCategory_CategoryIdAndEffectivePriceBetween(
                     search, categoryId, min, max, pageable);
         } else {
-            products = productRepository.findByNameContainingIgnoreCaseAndPriceBetween(
+            products = productRepository.findByNameContainingIgnoreCaseAndEffectivePriceBetween(
                     search, min, max, pageable);
         }
 
@@ -71,13 +76,13 @@ public class ProductService {
         }
 
         Category category = categoryRepository.findById(dto.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
         Product product = Product.builder()
                 .name(dto.getName())
                 .description(dto.getDescription())
                 .price(dto.getPrice())
-                .stock(dto.getStock())
+                .stock(dto.getStock() != null ? dto.getStock() : 0)
                 .imageUrl(dto.getImageUrl())
                 .rating(dto.getRating())
                 .reviewCount(dto.getReviewCount())
@@ -86,6 +91,7 @@ public class ProductService {
                 .build();
 
         applyVariants(product, dto.getVariants());
+        recalculateEffectivePrice(product);
         checkInventoryAndSetStatus(product);
 
         return ApiResponse.<ProductResponse>builder()
@@ -97,16 +103,19 @@ public class ProductService {
 
     @Transactional
     public ApiResponse<ProductResponse> updateProduct(Long id, ProductRequest dto) {
-        Product product = productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
-        Category category = categoryRepository.findById(dto.getCategoryId()).orElseThrow();
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        Category category = categoryRepository.findById(dto.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+
+        if (!product.getName().equals(dto.getName()) && productRepository.existsByName(dto.getName())) {
+            return ApiResponse.<ProductResponse>builder().success(false).message(getMessage("product.exists")).build();
+        }
 
         product.setName(dto.getName());
         product.setDescription(dto.getDescription());
         product.setPrice(dto.getPrice());
-        product.setStock(dto.getStock());
-        // BUG FIX: image, rating, review count, and discount were never
-        // applied on update before - editing a product silently kept its
-        // old image no matter what the admin selected.
+        product.setStock(dto.getStock() != null ? dto.getStock() : 0);
         product.setImageUrl(dto.getImageUrl());
         product.setRating(dto.getRating());
         product.setReviewCount(dto.getReviewCount());
@@ -114,6 +123,7 @@ public class ProductService {
         product.setCategory(category);
 
         applyVariants(product, dto.getVariants());
+        recalculateEffectivePrice(product);
         checkInventoryAndSetStatus(product);
 
         return ApiResponse.<ProductResponse>builder()
@@ -123,12 +133,6 @@ public class ProductService {
                 .build();
     }
 
-    // BUG FIX: needs an open transaction because mapToResponse() touches
-    // product.getVariants() (a lazy @OneToMany) and getCategory(). With
-    // spring.jpa.open-in-view=false, the DB session is already closed by
-    // the time those are read, throwing LazyInitializationException - a 500
-    // that the frontend surfaced to customers as "Product not found".
-    // Same root cause as the wishlist-loading bug fixed earlier.
     @Transactional(readOnly = true)
     public ApiResponse<ProductResponse> getProductById(Long productId) {
         return productRepository.findById(productId)
@@ -142,20 +146,14 @@ public class ProductService {
             return ApiResponse.<Void>builder().success(false).message(getMessage("product.notfound")).build();
         }
 
-        // A product that's been ordered can't be hard-deleted - doing so
-        // would either fail on the same FK constraint as wishlist/cart
-        // below, or (worse, if the DB allowed it) silently corrupt past
-        // customers' order history. Mark it out of stock instead.
-        long orderCount = orderItemRepository.countByProduct_ProductId(id);
+        long orderCount = orderItemRepositsory.countByProduct_ProductId(id);
         if (orderCount > 0) {
             throw new CartBusinessException(
                     "This product has " + orderCount + " existing order(s) and can't be deleted, " +
                     "since that would break those customers' order history. " +
-                    "Set it to Out of Stock instead if you want to stop selling it.");
+                    "Set its stock to 0 instead if you want to stop selling it.");
         }
 
-        // Wishlist entries and active cart items just reference a product a
-        // shopper was interested in - safe to clean up before deleting.
         wishlistRepository.deleteByProduct_ProductId(id);
         cartItemRepository.deleteByProductId(id);
 
@@ -163,31 +161,55 @@ public class ProductService {
         return ApiResponse.<Void>builder().success(true).message(getMessage("product.delete.success")).build();
     }
 
+    /**
+     * Fills in effectivePrice for products created before that column existed.
+     * Called once at startup by EffectivePriceBackfill; does nothing when all rows are filled.
+     */
+    @Transactional
+    public int backfillEffectivePrices() {
+        List<Product> missing = productRepository.findByEffectivePriceIsNull();
+        missing.forEach(this::recalculateEffectivePrice);
+        productRepository.saveAll(missing);
+        return missing.size();
+    }
+
+    /** Lowest price a customer can pay for one unit, after discount (cheapest variant if any). */
+    private void recalculateEffectivePrice(Product product) {
+        double base = pricing.unitPrice(product, null);
+        double lowest = product.getVariants().stream()
+                .mapToDouble(v -> pricing.unitPrice(product, v))
+                .min()
+                .orElse(base);
+        product.setEffectivePrice(lowest);
+    }
 
     /**
-     * Reconciles a product's variant set with the submitted list, rather
-     * than blindly clearing and re-inserting everything. That naive
-     * approach would break the moment an admin edited a product that had
-     * ANY variant with order history - orphanRemoval would try to delete
-     * an order-referenced variant row and hit the same FK violation class
-     * we already fixed for whole products. Instead:
-     *   - variants present in the request with a variantId get updated in place
-     *   - variants with no variantId are new, get added
-     *   - existing variants NOT in the request are removed, UNLESS they've
-     *     been ordered - those are left alone instead of crashing, since
-     *     removing them would corrupt past order history the same way
-     *     hard-deleting an ordered product would.
+     * Reconciles a product's variants with the submitted list:
+     *   - variants with a known variantId are updated in place
+     *   - variants without an id are new
+     *   - variants missing from the request are removed, UNLESS they have order history
+     *     (those are kept). Cart lines pointing at a removed variant are deleted first.
      */
     private void applyVariants(Product product, List<ProductVariantRequest> variantRequests) {
         if (variantRequests == null) {
             variantRequests = List.of();
         }
 
+        // Two identical size/colour variants would confuse stock and the cart.
+        Set<String> seen = new HashSet<>();
+        for (ProductVariantRequest vr : variantRequests) {
+            String key = (vr.getSize() == null ? "" : vr.getSize().trim().toLowerCase())
+                    + "|" + (vr.getColor() == null ? "" : vr.getColor().trim().toLowerCase());
+            if (!seen.add(key)) {
+                throw new CartBusinessException("Each size/colour combination can only be added once.");
+            }
+        }
+
         Map<Long, ProductVariant> existingById = product.getVariants().stream()
                 .filter(v -> v.getVariantId() != null)
                 .collect(Collectors.toMap(ProductVariant::getVariantId, v -> v));
 
-        java.util.Set<Long> keptIds = new java.util.HashSet<>();
+        Set<Long> keptIds = new HashSet<>();
 
         for (ProductVariantRequest vr : variantRequests) {
             if (vr.getVariantId() != null && existingById.containsKey(vr.getVariantId())) {
@@ -211,22 +233,20 @@ public class ProductService {
             }
         }
 
-        // Remove variants that were dropped from the submitted list - but
-        // only the ones nobody has ever ordered.
-        product.getVariants().removeIf(v ->
-                v.getVariantId() != null
+        List<ProductVariant> toRemove = product.getVariants().stream()
+                .filter(v -> v.getVariantId() != null
                         && !keptIds.contains(v.getVariantId())
-                        && orderItemRepository.countByVariant_VariantId(v.getVariantId()) == 0);
+                        && orderItemRepositsory.countByVariant_VariantId(v.getVariantId()) == 0)
+                .collect(Collectors.toList());
+
+        for (ProductVariant v : toRemove) {
+            cartItemRepository.deleteByVariant_VariantId(v.getVariantId());
+        }
+        product.getVariants().removeAll(toRemove);
     }
 
     /**
-     * Keeps status (and, for variant products, the base stock field used
-     * for display/sorting) truthful. For a simple product (no variants),
-     * this is unchanged from before - based on Product.stock directly.
-     * For a product WITH variants, "in stock" means at least one variant
-     * has stock, and the base stock field is kept as the sum of all
-     * variant stocks purely so existing sort-by-stock / display logic
-     * elsewhere keeps working without having to know about variants.
+     * Keeps status truthful. For variant products the base stock is the sum of variant stocks.
      */
     private void checkInventoryAndSetStatus(Product product) {
         if (!product.getVariants().isEmpty()) {
@@ -238,7 +258,7 @@ public class ProductService {
 
         if (product.getStock() <= 0) {
             product.setStatus(ProductStatus.OUT_OF_STOCK);
-            log.error("CRITICAL: Product '{}' (ID: {}) is now OUT OF STOCK!", product.getName(), product.getProductId());
+            log.warn("Product '{}' (ID: {}) is now OUT OF STOCK", product.getName(), product.getProductId());
         } else {
             product.setStatus(ProductStatus.IN_STOCK);
         }
@@ -248,8 +268,7 @@ public class ProductService {
         return messageSource.getMessage(key, null, LocaleContextHolder.getLocale());
     }
 
-    // Public wrapper so other services (e.g. WishlistService) can reuse the
-    // same mapping instead of duplicating it.
+    // Public wrapper so other services (e.g. WishlistService) can reuse the mapping.
     public ProductResponse toResponse(Product product) {
         return mapToResponse(product);
     }
@@ -277,11 +296,6 @@ public class ProductService {
                 .rating(product.getRating())
                 .reviewCount(product.getReviewCount())
                 .discountPercentage(product.getDiscountPercentage())
-                // BUG FIX: product.getCategory() being unexpectedly null (broken/missing
-                // reference) used to throw a NullPointerException here, which surfaced to
-                // the customer as a 500 error - and the frontend was treating ANY error as
-                // "Product not found", which is exactly the misleading behavior that was
-                // reported. Falling back to a placeholder instead of crashing.
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : "Uncategorized")
                 .categoryId(product.getCategory() != null ? product.getCategory().getCategoryId() : null)
                 .variants(variantResponses)
