@@ -41,7 +41,6 @@ public class ProductService {
     private final WishlistRepository wishlistRepository;
     private final CartItemRepository cartItemRepository;
     private final OrderItemRepository orderItemRepositsory;
-    private final ProductVariantRepository productVariantRepository;
     private final MessageSource messageSource;
     private final PricingService pricing;
   

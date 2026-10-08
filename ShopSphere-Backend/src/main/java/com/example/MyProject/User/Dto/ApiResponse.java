@@ -1,5 +1,4 @@
 package com.example.MyProject.User.Dto;
-import com.example.MyProject.Cart.dto.CartRequest;
 import lombok.*;
 @Builder
 @Setter

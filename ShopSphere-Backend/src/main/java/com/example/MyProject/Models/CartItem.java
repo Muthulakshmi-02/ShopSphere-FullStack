@@ -1,7 +1,4 @@
 package com.example.MyProject.Models;
-
-import com.example.MyProject.Models.Cart;
-import com.example.MyProject.Models.Product;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;

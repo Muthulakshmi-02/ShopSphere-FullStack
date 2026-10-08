@@ -1,6 +1,4 @@
 package com.example.MyProject.Models;
-import com.example.MyProject.Models.Order;
-import com.example.MyProject.Models.Product;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

@@ -1,5 +1,4 @@
 package com.example.MyProject.User.Dto;
-import com.example.MyProject.Enum.Role;
 import jakarta.validation.constraints.*;
 import lombok.*;
 

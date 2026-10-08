@@ -631,7 +631,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.ApplicationEventPublisher;
 // Add import for OrderEmailEvent if it is in another package:
- import com.example.MyProject.Services.OrderEmailEvent;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -656,6 +655,7 @@ public class OrderService {
     private final PricingService pricing;
     private final PromoService promoService;
     private final ApplicationEventPublisher events;
+   
     // constant to add inside the class
  private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
         OrderStatus.PENDING,   Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
