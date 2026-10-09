@@ -10,10 +10,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Set;
 
+// @CrossOrigin removed: CORS is configured once in SecurityConfig.
+// Login is already required for every /api/wishlist/** call by anyRequest().authenticated().
 @RestController
 @RequestMapping("/api/wishlist")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:4500", allowCredentials = "true")
 public class WishlistController {
 
     private final WishlistService wishlistService;
@@ -28,11 +29,7 @@ public class WishlistController {
         return ResponseEntity.ok(wishlistService.getMyWishlistProductIds());
     }
 
-    /**
-     * Toggles wishlist membership for a product - adds it if not present,
-     * removes it if already there. Keeps the frontend's "heart" button
-     * logic to a single call instead of needing to know current state first.
-     */
+    // Toggles membership: adds if absent, removes if present.
     @PostMapping("/{productId}/toggle")
     public ResponseEntity<ApiResponse<Boolean>> toggle(@PathVariable Long productId) {
         return ResponseEntity.ok(wishlistService.toggleWishlist(productId));

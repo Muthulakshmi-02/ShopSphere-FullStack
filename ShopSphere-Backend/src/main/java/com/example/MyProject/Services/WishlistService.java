@@ -1,5 +1,6 @@
 package com.example.MyProject.Services;
 
+import com.example.MyProject.Exception.CartBusinessException;
 import com.example.MyProject.Exception.ResourceNotFoundException;
 import com.example.MyProject.Models.Product;
 import com.example.MyProject.Models.User;
@@ -23,48 +24,34 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class WishlistService {
 
+    private static final int MAX_WISHLIST_ITEMS = 200;
+
     private final WishlistRepository wishlistRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final ProductService productService;
 
-    // BUG FIX: this method maps each WishlistItem to a full ProductResponse
-    // via productService.toResponse(), which touches lazy relationships
-    // (item.getProduct(), then product.getCategory() inside that mapping).
-    // Without @Transactional here, and with open-in-view=false (see
-    // application.properties), the Hibernate session closes as soon as the
-    // repository call returns - so accessing those lazy fields afterward
-    // threw a LazyInitializationException, a 500 error, which is exactly
-    // why "add to wishlist" (no lazy access) worked but loading the full
-    // wishlist page didn't.
+    // @Transactional is required: mapping to ProductResponse reads lazy relations
+    // and open-in-view is off (see application.properties).
     @Transactional(readOnly = true)
     public ApiResponse<List<WishlistItemResponse>> getMyWishlist() {
         User user = getAuthenticatedUser();
         List<WishlistItemResponse> items = wishlistRepository
-                .findByUser_UserIdOrderByAddedAtDesc(user.getUserId())
+                .findAllWithProductByUserId(user.getUserId())
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
-
         return ApiResponse.<List<WishlistItemResponse>>builder()
                 .success(true)
                 .data(items)
                 .build();
     }
 
-    /**
-     * Just the product IDs currently wishlisted by this user - used by the
-     * frontend to light up the heart icon on product cards without having
-     * to fetch the full wishlist on every page.
-     */
+    /** Just the product IDs wishlisted by this user (lights up hearts on product cards). */
     @Transactional(readOnly = true)
     public ApiResponse<Set<Long>> getMyWishlistProductIds() {
         User user = getAuthenticatedUser();
-        Set<Long> ids = wishlistRepository.findByUser_UserIdOrderByAddedAtDesc(user.getUserId())
-                .stream()
-                .map(item -> item.getProduct().getProductId())
-                .collect(Collectors.toSet());
-
+        Set<Long> ids = wishlistRepository.findProductIdsByUserId(user.getUserId());
         return ApiResponse.<Set<Long>>builder().success(true).data(ids).build();
     }
 
@@ -86,11 +73,16 @@ public class WishlistService {
                     .build();
         }
 
-        WishlistItem item = WishlistItem.builder()
+        // Without a cap, a script could create unlimited rows for one account.
+        if (wishlistRepository.countByUser_UserId(user.getUserId()) >= MAX_WISHLIST_ITEMS) {
+            throw new CartBusinessException(
+                    "Your wishlist is full (" + MAX_WISHLIST_ITEMS + " items). Remove something first.");
+        }
+
+        wishlistRepository.save(WishlistItem.builder()
                 .user(user)
                 .product(product)
-                .build();
-        wishlistRepository.save(item);
+                .build());
 
         return ApiResponse.<Boolean>builder()
                 .success(true)
@@ -112,12 +104,10 @@ public class WishlistService {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("No authenticated user found");
         }
-
         Object principal = authentication.getPrincipal();
         String email = (principal instanceof UserDetails)
                 ? ((UserDetails) principal).getUsername()
                 : principal.toString();
-
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }

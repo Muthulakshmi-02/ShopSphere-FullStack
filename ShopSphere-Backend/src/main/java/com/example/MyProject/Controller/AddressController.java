@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+// @CrossOrigin removed: CORS is configured once in SecurityConfig.
 @RestController
 @RequestMapping("/api/addresses")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:4500", allowCredentials = "true")
 public class AddressController {
 
     private final AddressService addressService;

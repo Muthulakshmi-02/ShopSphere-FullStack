@@ -27,6 +27,7 @@ public class AddressService {
 
     private static final int MAX_ADDRESSES_PER_USER = 10;
 
+    @Transactional(readOnly = true)
     public ApiResponse<List<AddressResponse>> getMyAddresses() {
         User user = getAuthenticatedUser();
         List<AddressResponse> addresses = addressRepository
@@ -34,7 +35,6 @@ public class AddressService {
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
-
         return ApiResponse.<List<AddressResponse>>builder().success(true).data(addresses).build();
     }
 
@@ -48,23 +48,21 @@ public class AddressService {
                     "You've reached the limit of " + MAX_ADDRESSES_PER_USER + " saved addresses. Delete one first.");
         }
 
-        // First address a user saves becomes their default automatically,
-        // regardless of what they picked, so there's never a state with
-        // saved addresses but no default.
+        // The first address a user saves is always their default, so there is never a state
+        // with saved addresses but no default.
         boolean shouldBeDefault = request.isDefault() || existingCount == 0;
-
         if (shouldBeDefault) {
-            clearExistingDefault(user.getUserId());
+            addressRepository.clearDefaultForUser(user.getUserId());
         }
 
         Address address = Address.builder()
                 .user(user)
-                .label(request.getLabel())
-                .shippingAddress(request.getShippingAddress())
-                .city(request.getCity())
-                .state(request.getState())
-                .zipCode(request.getZipCode())
-                .phoneNumber(request.getPhoneNumber())
+                .label(request.getLabel().trim())
+                .shippingAddress(request.getShippingAddress().trim())
+                .city(request.getCity().trim())
+                .state(request.getState().trim())
+                .zipCode(request.getZipCode().trim())
+                .phoneNumber(request.getPhoneNumber().trim())
                 .isDefault(shouldBeDefault)
                 .build();
 
@@ -82,15 +80,17 @@ public class AddressService {
         Address address = getOwnedAddressOrThrow(addressId, user.getUserId());
 
         if (request.isDefault() && !address.isDefault()) {
-            clearExistingDefault(user.getUserId());
+            addressRepository.clearDefaultForUser(user.getUserId());
         }
 
-        address.setLabel(request.getLabel());
-        address.setShippingAddress(request.getShippingAddress());
-        address.setCity(request.getCity());
-        address.setState(request.getState());
-        address.setZipCode(request.getZipCode());
-        address.setPhoneNumber(request.getPhoneNumber());
+        address.setLabel(request.getLabel().trim());
+        address.setShippingAddress(request.getShippingAddress().trim());
+        address.setCity(request.getCity().trim());
+        address.setState(request.getState().trim());
+        address.setZipCode(request.getZipCode().trim());
+        address.setPhoneNumber(request.getPhoneNumber().trim());
+        // An address can become the default here, but it is never un-defaulted by an edit:
+        // a user always keeps exactly one default.
         if (request.isDefault()) {
             address.setDefault(true);
         }
@@ -107,13 +107,11 @@ public class AddressService {
     public ApiResponse<Void> deleteAddress(Long addressId) {
         User user = getAuthenticatedUser();
         Address address = getOwnedAddressOrThrow(addressId, user.getUserId());
-        boolean wasDefault = address.isDefault();
 
+        boolean wasDefault = address.isDefault();
         addressRepository.delete(address);
 
-        // If the deleted address was the default, promote whichever address
-        // is now "first" (most recently added) to default, so the user
-        // still has exactly one default whenever they have any addresses.
+        // If the default was deleted, promote the most recently added remaining address.
         if (wasDefault) {
             List<Address> remaining = addressRepository
                     .findByUser_UserIdOrderByIsDefaultDescAddressIdDesc(user.getUserId());
@@ -132,7 +130,7 @@ public class AddressService {
         User user = getAuthenticatedUser();
         Address address = getOwnedAddressOrThrow(addressId, user.getUserId());
 
-        clearExistingDefault(user.getUserId());
+        addressRepository.clearDefaultForUser(user.getUserId());
         address.setDefault(true);
         Address saved = addressRepository.save(address);
 
@@ -146,18 +144,9 @@ public class AddressService {
     // --- Helpers ---
 
     private Address getOwnedAddressOrThrow(Long addressId, Long userId) {
-        // IDOR guard, same pattern as the payment-verify fix: look the
-        // address up scoped to the caller's own user ID, not just by its
-        // raw ID, so one user can never edit/delete another user's address.
+        // IDOR guard: looked up scoped to the caller's own user id, never by raw id alone.
         return addressRepository.findByAddressIdAndUser_UserId(addressId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Address not found"));
-    }
-
-    private void clearExistingDefault(Long userId) {
-        addressRepository.findByUser_UserIdAndIsDefaultTrue(userId).ifPresent(existing -> {
-            existing.setDefault(false);
-            addressRepository.save(existing);
-        });
     }
 
     private AddressResponse mapToResponse(Address address) {
@@ -182,7 +171,6 @@ public class AddressService {
         String email = (principal instanceof UserDetails)
                 ? ((UserDetails) principal).getUsername()
                 : principal.toString();
-
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
