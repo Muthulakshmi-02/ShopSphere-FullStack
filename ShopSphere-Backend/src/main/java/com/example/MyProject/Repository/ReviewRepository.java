@@ -1,6 +1,7 @@
 package com.example.MyProject.Repository;
 
 import com.example.MyProject.Models.Review;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,12 @@ import java.util.Optional;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long> {
+
+    // Latest 50 only, with each reviewer loaded in the same query. The old unlimited version
+    // returned every review of a product and ran one extra query per review to read the
+    // reviewer's name (N+1).
+    @EntityGraph(attributePaths = "user")
+    List<Review> findTop50ByProduct_ProductIdOrderByCreatedAtDesc(Long productId);
 
     List<Review> findByProduct_ProductIdOrderByCreatedAtDesc(Long productId);
 

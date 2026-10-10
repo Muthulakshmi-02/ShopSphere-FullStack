@@ -82,8 +82,7 @@ public class ProductService {
                 .price(dto.getPrice())
                 .stock(dto.getStock() != null ? dto.getStock() : 0)
                 .imageUrl(dto.getImageUrl())
-                .rating(dto.getRating())
-                .reviewCount(dto.getReviewCount())
+                 .reviewCount(0)
                 .discountPercentage(dto.getDiscountPercentage())
                 .category(category)
                 .build();
@@ -115,8 +114,8 @@ public class ProductService {
         product.setPrice(dto.getPrice());
         product.setStock(dto.getStock() != null ? dto.getStock() : 0);
         product.setImageUrl(dto.getImageUrl());
-        product.setRating(dto.getRating());
-        product.setReviewCount(dto.getReviewCount());
+        // product.setRating(dto.getRating());
+        // product.setReviewCount(dto.getReviewCount());
         product.setDiscountPercentage(dto.getDiscountPercentage());
         product.setCategory(category);
 

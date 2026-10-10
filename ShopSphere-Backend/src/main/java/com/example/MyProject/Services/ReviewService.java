@@ -1,5 +1,6 @@
 package com.example.MyProject.Services;
 
+import com.example.MyProject.Enum.OrderStatus;
 import com.example.MyProject.Exception.CartBusinessException;
 import com.example.MyProject.Exception.ResourceNotFoundException;
 import com.example.MyProject.Models.Product;
@@ -23,13 +24,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Real customer reviews - gated behind having actually purchased the
- * product, which is what replaces the admin-typed rating/reviewCount
- * numbers on Product with genuine feedback. Every time a review is
- * submitted, the product's cached rating/reviewCount are recomputed from
- * the real review data, so all the existing star-rating display code
- * across product cards / product detail keeps working unchanged - it just
- * shows real numbers now instead of admin-entered ones.
+ * Real customer reviews, limited to verified buyers. Every change recomputes the product's
+ * rating and reviewCount from the real review rows, so the numbers shown on product cards and
+ * the detail page are always genuine.
  */
 @Service
 @RequiredArgsConstructor
@@ -42,17 +39,18 @@ public class ReviewService {
 
     @Transactional(readOnly = true)
     public ApiResponse<List<ReviewResponse>> getProductReviews(Long productId) {
-        List<ReviewResponse> reviews = reviewRepository.findByProduct_ProductIdOrderByCreatedAtDesc(productId)
+        List<ReviewResponse> reviews = reviewRepository.findTop50ByProduct_ProductIdOrderByCreatedAtDesc(productId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
         return ApiResponse.<List<ReviewResponse>>builder().success(true).data(reviews).build();
     }
 
+    @Transactional(readOnly = true)
     public ApiResponse<ReviewEligibilityResponse> checkEligibility(Long productId) {
         User user = getAuthenticatedUser();
-        boolean hasPurchased = orderItemRepository.existsByOrder_User_UserIdAndProduct_ProductId(
-                user.getUserId(), productId);
+
+        boolean hasPurchased = hasDeliveredPurchase(user.getUserId(), productId);
         boolean alreadyReviewed = reviewRepository.existsByUser_UserIdAndProduct_ProductId(
                 user.getUserId(), productId);
 
@@ -68,28 +66,32 @@ public class ReviewService {
     @Transactional
     public ApiResponse<ReviewResponse> submitReview(Long productId, ReviewRequest request) {
         User user = getAuthenticatedUser();
+
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
-        boolean hasPurchased = orderItemRepository.existsByOrder_User_UserIdAndProduct_ProductId(
-                user.getUserId(), productId);
-        if (!hasPurchased) {
-            throw new CartBusinessException("Only customers who've purchased this product can review it.");
+        // Before: ANY order line counted, even a cancelled or unpaid one, so someone could place
+        // an order, review instantly, then cancel. Now the order must have been DELIVERED.
+        if (!hasDeliveredPurchase(user.getUserId(), productId)) {
+            throw new CartBusinessException(
+                    "You can review this product once an order containing it has been delivered.");
         }
 
-        boolean alreadyReviewed = reviewRepository.existsByUser_UserIdAndProduct_ProductId(
-                user.getUserId(), productId);
-        if (alreadyReviewed) {
+        if (reviewRepository.existsByUser_UserIdAndProduct_ProductId(user.getUserId(), productId)) {
             throw new CartBusinessException("You've already reviewed this product.");
         }
 
-        Review review = Review.builder()
+        String comment = request.getComment() == null ? null : request.getComment().trim();
+        if (comment != null && comment.isEmpty()) {
+            comment = null;
+        }
+
+        Review saved = reviewRepository.save(Review.builder()
                 .user(user)
                 .product(product)
                 .rating(request.getRating())
-                .comment(request.getComment())
-                .build();
-        Review saved = reviewRepository.save(review);
+                .comment(comment)
+                .build());
 
         recomputeProductRating(product);
 
@@ -100,12 +102,32 @@ public class ReviewService {
                 .build();
     }
 
-    /**
-     * Recalculates a product's displayed rating/reviewCount from real
-     * review data. Called after every review submission so the numbers
-     * shown everywhere else in the app (product cards, detail page) stay
-     * truthful without those components needing to know reviews exist.
-     */
+    /** Admin moderation: removes an abusive or fake review and recalculates the rating. */
+    @Transactional
+    public ApiResponse<Void> deleteReview(Long productId, Long reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+
+        // The review must belong to the product in the URL.
+        if (!review.getProduct().getProductId().equals(productId)) {
+            throw new ResourceNotFoundException("Review not found");
+        }
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        reviewRepository.delete(review);
+        reviewRepository.flush();
+        recomputeProductRating(product);
+
+        return ApiResponse.<Void>builder().success(true).message("Review deleted").build();
+    }
+
+    private boolean hasDeliveredPurchase(Long userId, Long productId) {
+        return orderItemRepository.existsByOrder_User_UserIdAndProduct_ProductIdAndOrder_OrderStatus(
+                userId, productId, OrderStatus.DELIVERED);
+    }
+
     private void recomputeProductRating(Product product) {
         Double average = reviewRepository.findAverageRatingForProduct(product.getProductId());
         long count = reviewRepository.countByProduct_ProductId(product.getProductId());
@@ -118,11 +140,20 @@ public class ReviewService {
     private ReviewResponse mapToResponse(Review review) {
         return ReviewResponse.builder()
                 .reviewId(review.getReviewId())
-                .reviewerName(review.getUser().getUserName())
+                .reviewerName(publicName(review.getUser().getUserName()))
                 .rating(review.getRating())
                 .comment(review.getComment())
                 .createdAt(review.getCreatedAt())
                 .build();
+    }
+
+    // Usernames can be real full names ("Muthulakshmi B"); on a public page show the first
+    // name and only the initial of the rest.
+    private String publicName(String userName) {
+        if (userName == null || userName.isBlank()) return "Customer";
+        String[] parts = userName.trim().split("\\s+");
+        if (parts.length == 1) return parts[0];
+        return parts[0] + " " + parts[parts.length - 1].charAt(0) + ".";
     }
 
     private User getAuthenticatedUser() {
@@ -134,7 +165,6 @@ public class ReviewService {
         String email = (principal instanceof UserDetails)
                 ? ((UserDetails) principal).getUsername()
                 : principal.toString();
-
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
