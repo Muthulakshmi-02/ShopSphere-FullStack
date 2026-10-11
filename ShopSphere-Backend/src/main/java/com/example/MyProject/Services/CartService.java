@@ -303,15 +303,14 @@ import com.example.MyProject.Exception.CartBusinessException;
 import com.example.MyProject.Exception.ResourceNotFoundException;
 import com.example.MyProject.Models.Cart;
 import com.example.MyProject.Models.CartItem;
-import com.example.MyProject.Models.Coupon;
+
 import com.example.MyProject.Models.Product;
 import com.example.MyProject.Models.ProductVariant;
 import com.example.MyProject.Models.User;
 import com.example.MyProject.Repository.CartRepository;
-import com.example.MyProject.Repository.CouponRepository;
 import com.example.MyProject.Repository.ProductRepository;
 import com.example.MyProject.Repository.ProductVariantRepository;
-import com.example.MyProject.Repository.UserCouponRepository;
+
 import com.example.MyProject.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
@@ -333,8 +332,6 @@ public class CartService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
     private final MessageSource messageSource;
-    private final CouponRepository couponRepository;
-    private final UserCouponRepository userCouponRepository;
     private final PricingService pricing;
     private final PromoService promoService;
     // ------------------------------------------------------------------
