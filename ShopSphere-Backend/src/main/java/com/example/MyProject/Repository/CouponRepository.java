@@ -8,5 +8,9 @@ import java.util.Optional;
 
 @Repository
 public interface CouponRepository extends JpaRepository<Coupon, Long> {
+
     Optional<Coupon> findByCodeAndActiveTrue(String code);
+
+    // Used now: a code typed in lowercase in the database no longer silently fails to match.
+    Optional<Coupon> findByCodeIgnoreCaseAndActiveTrue(String code);
 }

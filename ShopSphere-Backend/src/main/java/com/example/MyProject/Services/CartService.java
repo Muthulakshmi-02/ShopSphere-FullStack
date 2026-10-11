@@ -336,7 +336,7 @@ public class CartService {
     private final CouponRepository couponRepository;
     private final UserCouponRepository userCouponRepository;
     private final PricingService pricing;
-
+    private final PromoService promoService;
     // ------------------------------------------------------------------
     // Cart operations
     // ------------------------------------------------------------------
@@ -445,39 +445,10 @@ public class CartService {
     // ------------------------------------------------------------------
     // Promo preview (the real discount is applied in PromoService at checkout)
     // ------------------------------------------------------------------
-
-    @Transactional(readOnly = true)
-    public Map<String, Object> validatePromoCode(String code) {
-        String cleanCode = code.trim().toUpperCase();
-        User currentUser = getAuthenticatedUser();
-
-        boolean alreadyUsed = userCouponRepository.existsByUserEmailAndCouponCode(currentUser.getEmail(), cleanCode);
-        if (alreadyUsed) {
-            return Map.of(
-                    "valid", false,
-                    "used", true,
-                    "message", "You have already used this promo code on a previous order."
-            );
-        }
-
-        Optional<Coupon> couponOpt = couponRepository.findByCodeAndActiveTrue(cleanCode);
-        if (couponOpt.isPresent()) {
-            Coupon coupon = couponOpt.get();
-            return Map.of(
-                    "valid", true,
-                    "used", false,
-                    "type", coupon.getType(),
-                    "value", coupon.getValue()
-            );
-        }
-
-        return Map.of(
-                "valid", false,
-                "used", false,
-                "message", "Invalid or expired promo code."
-        );
-    }
-
+@Transactional(readOnly = true)
+public Map<String, Object> validatePromoCode(String code) {
+    return promoService.preview(code, getAuthenticatedUser().getEmail());
+}
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
