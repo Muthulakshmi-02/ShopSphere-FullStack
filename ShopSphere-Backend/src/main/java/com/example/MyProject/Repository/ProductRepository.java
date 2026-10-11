@@ -37,6 +37,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     boolean existsByName(String name);
 
     long countByCategory_CategoryId(Long categoryId);
+     @Query("select p.category.categoryId, count(p) from Product p group by p.category.categoryId")
+    List<Object[]> countProductsPerCategory();
 
     /** Row lock used during checkout so concurrent orders can't oversell low-stock products. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
