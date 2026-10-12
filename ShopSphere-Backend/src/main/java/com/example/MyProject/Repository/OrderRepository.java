@@ -22,10 +22,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findAllByOrderByOrderDateDesc();
 
+    // One query that brings each order's lines AND their products (the plain finders above
+    // ran extra queries per order and per line: N+1).
+    @Query("select distinct o from Order o " +
+           "left join fetch o.orderItems i " +
+           "left join fetch i.product " +
+           "where o.user.userId = :userId " +
+           "order by o.orderDate desc")
+    List<Order> findByUserIdWithItems(@Param("userId") Long userId);
+
+    @Query("select distinct o from Order o " +
+           "join fetch o.user " +
+           "left join fetch o.orderItems i " +
+           "left join fetch i.product " +
+           "order by o.orderDate desc")
+    List<Order> findAllWithItems();
+
     // Real "latest 30" (SQL LIMIT). Lazy relations are read inside the @Transactional service.
     List<Order> findTop30ByOrderByOrderDateDesc();
 
-    // Preferred for the live ticker: only orders that really happened.
+    // For the live ticker: only orders that really happened.
     List<Order> findTop30ByOrderStatusInOrderByOrderDateDesc(Collection<OrderStatus> statuses);
 
     List<Order> findByPaymentStatus(PaymentStatus paymentStatus);
@@ -34,6 +50,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             PaymentStatus paymentStatus,
             OrderStatus excludedOrderStatus,
             LocalDateTime after);
+
+    // Analytics: just (orderDate, totalAmount) of paid, non-cancelled orders. No entities,
+    // no order lines, no products are loaded.
+    @Query("select o.orderDate, o.totalAmount from Order o " +
+           "where o.paymentStatus = :paid and o.orderStatus <> :cancelled and o.orderDate >= :since")
+    List<Object[]> findPaidOrderPoints(@Param("paid") PaymentStatus paid,
+                                       @Param("cancelled") OrderStatus cancelled,
+                                       @Param("since") LocalDateTime since);
 
     // Used by OrderService.cancelExpiredUnpaidCardOrders()
     List<Order> findByOrderStatusAndPaymentStatusAndCreatedAtBefore(
@@ -48,6 +72,4 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.razorpayOrderId = :rzpOrderId")
     Optional<Order> findByRazorpayOrderIdForUpdate(@Param("rzpOrderId") String rzpOrderId);
-
-    
 }

@@ -174,6 +174,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -190,7 +191,9 @@ public class PaymentService {
 
     @Transactional
     public RazorpayOrderResponse createRazorpayOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
+        // Row lock (was a plain findById): two quick clicks on "Pay" could each create a
+        // Razorpay order, and a payment against the overwritten one could never be matched.
+        Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
 
         assertOwner(order, "pay for");
@@ -208,9 +211,6 @@ public class PaymentService {
         String receipt = "order_" + order.getOrderId();
         long amountInPaise = Math.round(order.getTotalAmount() * 100);
 
-        // Reuse the Razorpay order if one already exists for this order: clicking "Pay"
-        // twice must not create a second one (a payment against an older one could
-        // otherwise never be matched back to this order).
         String razorpayOrderId = order.getRazorpayOrderId();
         try {
             if (razorpayOrderId == null) {
@@ -232,10 +232,9 @@ public class PaymentService {
                 .build();
     }
 
-    // Browser callback path. noRollbackFor so a FAILED attempt is still recorded.
-    @Transactional(noRollbackFor = IllegalStateException.class)
+    // Browser callback path.
+    @Transactional
     public PaymentResponse verifyAndSavePayment(PaymentRequest request) {
-        // Row lock: the webhook may be processing the same order at the same moment.
         Order order = orderRepository.findByIdForUpdate(request.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + request.getOrderId()));
 
@@ -261,12 +260,15 @@ public class PaymentService {
                 request.getRazorpaySignature());
 
         if (!isReallyPaid) {
-            savePaymentRecord(order, request.getTransactionId(), request.getPaymentMethod(), "FAILED");
+            // No FAILED row is stored any more. payment_details allows ONE row per order (unique
+            // order_id) and unique transaction_id, so a stored FAILED attempt made every later
+            // successful payment for the same order fail with a database error.
+            log.warn("Signature verification FAILED for order {} (razorpay order {})",
+                    order.getOrderId(), request.getRazorpayOrderId());
             throw new IllegalStateException("Payment verification failed. Please try again or contact support.");
         }
 
-        PaymentDetail payment = savePaymentRecord(order, request.getRazorpayPaymentId(),
-                request.getPaymentMethod(), "COMPLETED");
+        PaymentDetail payment = recordCompletedPayment(order, request.getRazorpayPaymentId(), request.getPaymentMethod());
         markPaid(order, request.getRazorpayPaymentId());
         orderRepository.save(order);
 
@@ -313,11 +315,10 @@ public class PaymentService {
             return;
         }
 
-        savePaymentRecord(order, razorpayPaymentId, method == null ? "ONLINE" : method.toUpperCase(), "COMPLETED");
+        recordCompletedPayment(order, razorpayPaymentId, method == null ? "ONLINE" : method.toUpperCase());
 
         if (order.getOrderStatus() == OrderStatus.CANCELLED) {
             // Money was captured for an order we already cancelled (stock restored).
-            // We cannot fulfil it, so flag it for refund.
             order.setRazorpayPaymentId(razorpayPaymentId);
             order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
             log.warn("Webhook: payment {} captured for CANCELLED order {}. Marked REFUND_PENDING - refund it in Razorpay.",
@@ -339,15 +340,19 @@ public class PaymentService {
         events.publishEvent(new OrderEmailEvent(order.getOrderId(), OrderEmailEvent.Type.CONFIRMATION));
     }
 
-    private PaymentDetail savePaymentRecord(Order order, String transactionId, String method, String status) {
-        return paymentRepository.save(PaymentDetail.builder()
-                .order(order)
-                .transactionId(transactionId)
-                .paymentGateway("RAZORPAY")
-                .paymentMethod(method)
-                .amount(order.getTotalAmount())
-                .status(status)
-                .build());
+    // One payment row per order: update it if it exists, otherwise create it.
+    private PaymentDetail recordCompletedPayment(Order order, String transactionId, String method) {
+        PaymentDetail payment = paymentRepository.findByOrder_OrderId(order.getOrderId())
+                .orElseGet(() -> PaymentDetail.builder()
+                        .order(order)
+                        .paymentGateway("RAZORPAY")
+                        .build());
+
+        payment.setTransactionId(transactionId);
+        payment.setPaymentMethod(method == null || method.isBlank() ? "ONLINE" : method);
+        payment.setAmount(order.getTotalAmount());
+        payment.setStatus("COMPLETED");
+        return paymentRepository.save(payment);
     }
 
     private void assertOwner(Order order, String action) {

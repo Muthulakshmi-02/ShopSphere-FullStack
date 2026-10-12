@@ -303,14 +303,12 @@ import com.example.MyProject.Exception.CartBusinessException;
 import com.example.MyProject.Exception.ResourceNotFoundException;
 import com.example.MyProject.Models.Cart;
 import com.example.MyProject.Models.CartItem;
-
 import com.example.MyProject.Models.Product;
 import com.example.MyProject.Models.ProductVariant;
 import com.example.MyProject.Models.User;
 import com.example.MyProject.Repository.CartRepository;
 import com.example.MyProject.Repository.ProductRepository;
 import com.example.MyProject.Repository.ProductVariantRepository;
-
 import com.example.MyProject.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
@@ -318,7 +316,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;

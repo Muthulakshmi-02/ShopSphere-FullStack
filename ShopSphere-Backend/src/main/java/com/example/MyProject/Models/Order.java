@@ -110,27 +110,28 @@ public class Order {
     @Column(nullable = false)
     private PaymentStatus paymentStatus;
 
-    @NotBlank(message = "order.payment.method")
+    // {braces} so the text comes from messages.properties instead of showing the raw key.
+    @NotBlank(message = "{order.payment.method}")
     private String paymentMethod;
 
     @Column(nullable = false)
-    @NotBlank(message = "order.phone.required")
+    @NotBlank(message = "{order.phone.required}")
     private String phoneNumber;
 
     @Column(columnDefinition = "TEXT", nullable = false)
-    @NotBlank(message = "order.address.required")
+    @NotBlank(message = "{order.address.required}")
     private String shippingAddress;
 
     @Column(nullable = false)
-    @NotBlank(message = "order.city.required")
+    @NotBlank(message = "{order.city.required}")
     private String city;
 
     @Column(nullable = false)
-    @NotBlank(message = "order.state.required")
+    @NotBlank(message = "{order.state.required}")
     private String state;
 
     @Column(nullable = false)
-    @NotBlank(message = "order.zip.required")
+    @NotBlank(message = "{order.zip.required}")
     private String zipCode;
 
     // Razorpay Gateway Order and Payment Tracking
@@ -145,7 +146,7 @@ public class Order {
 
     @Column(name = "promo_code")
     private String promoCode;
-    
+
     @Builder.Default
     @Column(name = "discount_amount")
     private Double discountAmount = 0.0;

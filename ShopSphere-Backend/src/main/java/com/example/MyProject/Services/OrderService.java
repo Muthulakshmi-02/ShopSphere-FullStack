@@ -812,7 +812,7 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderResponse> getUserOrderHistory() {
         User user = getAuthenticatedUser();
-        return orderRepository.findByUser_UserIdOrderByOrderDateDesc(user.getUserId())
+        return orderRepository.findByUserIdWithItems(user.getUserId())
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -820,7 +820,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getAllOrdersForAdmin() {
-        return orderRepository.findAllByOrderByOrderDateDesc()
+      return orderRepository.findAllWithItems()
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -992,7 +992,11 @@ public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
         res.setPaymentMethod(order.getPaymentMethod());
         res.setPromoCode(order.getPromoCode());
         res.setDiscountAmount(order.getDiscountAmount());
-
+        res.setPhoneNumber(order.getPhoneNumber());
+        if (order.getUser() != null) {
+            res.setCustomerName(order.getUser().getUserName());
+            res.setCustomerEmail(order.getUser().getEmail());
+        }
         res.setItems(order.getOrderItems().stream().map(item -> {
             OrderItemResponse iRes = new OrderItemResponse();
             iRes.setProductId(item.getProduct().getProductId());

@@ -8,21 +8,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+// @CrossOrigin removed: CORS is configured once in SecurityConfig.
 @RestController
 @RequestMapping("/api/admin/analytics")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
-@CrossOrigin(origins = "http://localhost:4500", allowCredentials = "true")
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
 
-    /**
-     * Revenue over time + best-selling products, computed from real PAID
-     * orders. `days` controls the reporting window (defaults to 30, capped
-     * at 365 in the service to keep this from being asked to aggregate an
-     * unbounded amount of history in one request).
-     */
+    /** Revenue over time + best sellers from real PAID orders. `days` is capped at 365 in the service. */
     @GetMapping
     public ResponseEntity<ApiResponse<AnalyticsResponse>> getAnalytics(
             @RequestParam(defaultValue = "30") int days) {

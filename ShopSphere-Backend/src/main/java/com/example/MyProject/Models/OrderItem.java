@@ -1,11 +1,18 @@
 package com.example.MyProject.Models;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+// @Data was replaced by @Getter/@Setter. @Data also generates equals/hashCode/toString over
+// every field, including the lazy order/product/variant relations; on JPA entities that can
+// trigger unintended lazy loading and unpredictable collection behaviour.
 @Entity
 @Table(name = "order_items")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderItem {
@@ -27,14 +34,13 @@ public class OrderItem {
     @JoinColumn(name = "variant_id")
     private ProductVariant variant;
 
-    // Snapshot of the variant's size/color at time of purchase (e.g.
-    // "Size: 9, Color: Black") so order history still displays correctly
-    // even if the variant itself is later removed from the product.
+    // Snapshot of the variant's size/color at time of purchase.
     @Column(name = "variant_label", length = 100)
     private String variantLabel;
 
     @Column(nullable = false)
     private Integer quantity;
+
     @Column(nullable = false)
     private Double price;
 }
