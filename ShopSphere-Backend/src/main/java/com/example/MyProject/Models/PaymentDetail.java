@@ -1,9 +1,7 @@
 package com.example.MyProject.Models;
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Size;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
 @Entity

@@ -1,13 +1,10 @@
 package com.example.MyProject.Models;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.*;
-
 import java.time.LocalDateTime;
-
 /**
  * A real customer review, gated behind actually having purchased the
  * product (checked in ReviewService, not here) - this is what replaces

@@ -1,11 +1,9 @@
 package com.example.MyProject.Models;
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
 // @Data was replaced by @Getter/@Setter. @Data also generates equals/hashCode/toString over
 // every field, including the lazy order/product/variant relations; on JPA entities that can
 // trigger unintended lazy loading and unpredictable collection behaviour.

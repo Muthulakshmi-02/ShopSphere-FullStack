@@ -66,13 +66,11 @@
 //}
 
 package com.example.MyProject.Models;
-
 import com.example.MyProject.Enum.OrderStatus;
 import com.example.MyProject.Enum.PaymentStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
