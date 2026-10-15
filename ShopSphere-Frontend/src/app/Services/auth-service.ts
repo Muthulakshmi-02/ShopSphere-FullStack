@@ -3,7 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
-import { LoginUserDto, LoginResponseDTO, ApiResponse, RegisterUserDto } from '../Models/User.model';
+import { LoginUserDto, LoginResponseDTO, ApiResponse, RegisterUserDto, UserResponseDTO } from '../Models/User.model';
 import { CartService } from './cart-service';
 
 @Injectable({ providedIn: 'root' })
@@ -15,13 +15,11 @@ export class AuthService {
 
   private readonly API_URL = 'http://localhost:8080/api/auth';
 
-  // State: The single source of truth for the user
+  // The single source of truth for the user
   currentUser = signal<LoginResponseDTO | null>(null);
 
-  // Derived States: Calculated automatically when currentUser changes
   isLoggedIn = computed(() => !!this.currentUser());
 
-  // Case-insensitive role check for Admin
   isAdmin = computed(() => {
     const role = this.currentUser()?.role;
     return role?.toUpperCase() === 'ADMIN';
@@ -34,82 +32,98 @@ export class AuthService {
   });
 
   constructor() {
-    // Hydrate state from storage on app load
+    // Restore the session when the app loads.
     if (isPlatformBrowser(this.platformId)) {
+      const token = sessionStorage.getItem('token') ?? localStorage.getItem('token');
+
+      // NEW: a token older than its 24h lifetime used to leave the UI looking "logged in" while
+      // every request failed. Drop it up front instead.
+      if (token && this.isTokenExpired(token)) {
+        this.clearStorage();
+        return;
+      }
+
       const savedUser = sessionStorage.getItem('user');
       if (savedUser) {
         try {
-          const user = JSON.parse(savedUser);
-          this.currentUser.set(user);
-        } catch (e) {
-          console.error("Failed to parse saved user", e);
-          this.logout();
+          this.currentUser.set(JSON.parse(savedUser));
+        } catch {
+          // Was logout(): that navigates AND reloads the page. Just clear the bad data.
+          this.clearStorage();
         }
       }
     }
   }
 
+  // Stores the session. Navigation is now the caller's job (the Login page), so it can send the
+  // user to the page they originally wanted (returnUrl).
   login(credentials: LoginUserDto): Observable<ApiResponse<LoginResponseDTO>> {
     return this.http.post<ApiResponse<LoginResponseDTO>>(`${this.API_URL}/login`, credentials).pipe(
       tap(res => {
         if (res.success && res.data) {
           const userData = res.data;
-          const token = userData.token;
-          const role = userData.role.toUpperCase(); // Normalize role string
+          const role = userData.role.toUpperCase();
 
           if (isPlatformBrowser(this.platformId)) {
-            // Store token and user data consistently
-            sessionStorage.setItem('token', token);
+            sessionStorage.setItem('token', userData.token);
             sessionStorage.setItem('user', JSON.stringify(userData));
-
-            // Sync with localStorage for Guards
-            localStorage.setItem('token', token);
+            // Kept for the existing guards / interceptor until they are consolidated.
+            localStorage.setItem('token', userData.token);
             localStorage.setItem('role', role);
           }
 
-          // Update the Signal state
           this.currentUser.set(userData);
 
-          // REDIRECTION LOGIC
-          if (role === 'ADMIN') {
-            console.log('Redirecting to Admin Dashboard...');
-            this.router.navigate(['/admindashboard']);
-          } else {
-            console.log('Redirecting to Products Page...');
-            this.router.navigate(['/products']);
-
-            // CRITICAL: Must .subscribe() to trigger the HTTP call
-            this.cartService.loadCart().subscribe({
-              next: () => console.log('User cart loaded'),
-              error: (err) => console.error('Cart load failed', err)
-            });
+          if (role !== 'ADMIN') {
+            this.cartService.loadCart().subscribe({ error: () => { } });
           }
         }
       })
     );
   }
 
-  register(userData: RegisterUserDto): Observable<ApiResponse<string>> {
-    return this.http.post<ApiResponse<string>>(`${this.API_URL}/register`, userData);
+  register(userData: RegisterUserDto): Observable<ApiResponse<UserResponseDTO>> {
+    return this.http.post<ApiResponse<UserResponseDTO>>(`${this.API_URL}/register`, userData);
   }
 
   logout(): void {
+    this.clearSession();
+    this.router.navigate(['/login']).then(() => {
+      // Reload so no old user's data stays in memory.
+      window.location.reload();
+    });
+  }
+
+  // For the HTTP interceptor: call this when the server answers 401 to a request that carried a
+  // token (expired or invalid session). No reload; the login page explains what happened.
+  sessionExpired(): void {
+    if (!this.currentUser()) return;   // already logged out, nothing to do
+    this.clearSession();
+    this.router.navigate(['/login'], { queryParams: { expired: '1' } });
+  }
+
+  private clearSession(): void {
+    this.clearStorage();
+    this.currentUser.set(null);
+    this.cartService.cartData.set(null);
+  }
+
+  private clearStorage(): void {
     if (isPlatformBrowser(this.platformId)) {
-      // 1. Clear ALL storage
       sessionStorage.clear();
       localStorage.clear();
     }
+  }
 
-    // 2. Reset Auth Signal
-    this.currentUser.set(null);
-
-    // 3. Reset Cart Data in the CartService
-    this.cartService.cartData.set(null);
-
-    // 4. Redirect to login
-    this.router.navigate(['/login']).then(() => {
-      // Small delay before reload to ensure router clears state
-      window.location.reload();
-    });
+  // Reads the "exp" claim from the JWT (no secret needed to read it; the SERVER still verifies it).
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = token.split('.')[1];
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      const exp = JSON.parse(json).exp;
+      return typeof exp === 'number' && exp * 1000 <= Date.now();
+    } catch {
+      return true; // unreadable token = treat as invalid
+    }
   }
 }

@@ -1,66 +1,29 @@
 <div class="admin-shell">
+
   <!-- Sidebar -->
   <aside class="sidebar">
-
-    <div class="sidebar-section-title">
-      MANAGEMENT
-    </div>
+    <div class="sidebar-section-title">MANAGEMENT</div>
 
     <nav>
-
       <button class="tab-btn" [class.active]="activeTab() === 'products'" (click)="activeTab.set('products')">
-        <!-- 
-        <span class="nav-icon">📦</span> -->
-        <mat-icon class="nav-icon">
-          inventory_2
-        </mat-icon>
-
-        <span class="nav-label">
-          Products
-        </span>
-
+        <mat-icon class="nav-icon">inventory_2</mat-icon>
+        <span class="nav-label">Products</span>
       </button>
 
       <button class="tab-btn" [class.active]="activeTab() === 'categories'" (click)="activeTab.set('categories')">
-
-        <!-- <span class="nav-icon">🗂</span> -->
-        <mat-icon class="nav-icon">
-          category
-        </mat-icon>
-
-
-        <span class="nav-label">
-          Categories
-        </span>
-
+        <mat-icon class="nav-icon">category</mat-icon>
+        <span class="nav-label">Categories</span>
       </button>
 
       <button class="tab-btn" [class.active]="activeTab() === 'orders'" (click)="activeTab.set('orders')">
-
-        <!-- <span class="nav-icon">📋</span> -->
-        <mat-icon class="nav-icon">
-          receipt_long
-        </mat-icon>
-
-        <span class="nav-label">
-          Orders
-        </span>
-
+        <mat-icon class="nav-icon">receipt_long</mat-icon>
+        <span class="nav-label">Orders</span>
       </button>
 
       <button class="tab-btn" [class.active]="activeTab() === 'analytics'" (click)="openAnalyticsTab()">
-
-        <!-- <span class="nav-icon">📈</span> -->
-
-        <mat-icon class="nav-icon">
-          analytics
-        </mat-icon>
-        <span class="nav-label">
-          Analytics
-        </span>
-
+        <mat-icon class="nav-icon">analytics</mat-icon>
+        <span class="nav-label">Analytics</span>
       </button>
-
     </nav>
   </aside>
 
@@ -84,7 +47,7 @@
           ? 'Organize product hierarchies and taxonomy'
           : activeTab() === 'orders'
           ? 'Track customer orders and fulfill statuses'
-          : 'Analyze revenue streams, conversion metrics, and top sellers'
+          : 'Revenue and best sellers from paid orders'
           }}
         </p>
       </div>
@@ -96,10 +59,7 @@
           <input type="text" class="search-input" placeholder="Search products..." [ngModel]="searchTerm()"
             (ngModelChange)="onSearchChange($event)" />
         </div>
-
-        <button class="btn primary" (click)="openAddProduct()">
-          + Add product
-        </button>
+        <button class="btn primary" (click)="openAddProduct()">+ Add product</button>
       </div>
 
       <!-- Categories header tools -->
@@ -109,54 +69,39 @@
         <button class="btn primary" (click)="saveCategory()">
           {{ editingCategoryId() ? 'Update category' : 'Save category' }}
         </button>
-        <button class="btn ghost" *ngIf="editingCategoryId()" (click)="cancelEditCategory()">
-          Cancel
-        </button>
+        <button class="btn ghost" *ngIf="editingCategoryId()" (click)="cancelEditCategory()">Cancel</button>
       </div>
     </header>
 
     <!-- Content -->
     <section class="content">
+
       <!-- PRODUCTS TAB -->
       <div *ngIf="activeTab() === 'products'">
-        <!-- KPI Scorecards -->
+
+        <!-- KPI Scorecards: real catalog-wide numbers from the server -->
         <div class="kpi-grid">
           <div class="kpi-card">
-            <span class="kpi-label">
-              📦 Total Catalog
-            </span>
-            <span class="kpi-value">{{ totalElements() }}</span>
+            <span class="kpi-label">📦 Total Catalog</span>
+            <span class="kpi-value">{{ stats()?.total ?? totalElements() }}</span>
           </div>
+
           <div class="kpi-card">
             <span class="kpi-label">✅ In Stock</span>
-            <span class="kpi-value text-green">
-              {{ inStockCount() }}
-            </span>
-
-            <span class="sub-text">
-              Products
-            </span>
+            <span class="kpi-value text-green">{{ stats()?.inStock ?? 0 }}</span>
+            <span class="sub-text">Products</span>
           </div>
+
           <div class="kpi-card">
             <span class="kpi-label">⚠ Low Stock Alerts</span>
-            <span class="kpi-value text-orange">
-              {{ lowStockCount() }}
-            </span>
-
-            <span class="sub-text">
-              Products
-            </span>
+            <span class="kpi-value text-orange">{{ stats()?.lowStock ?? 0 }}</span>
+            <span class="sub-text">Products with fewer than 10 left</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-label">❌ Out Of Stock
-            </span>
-            <span class="kpi-value text-red">
-              {{ outOfStockCount() }}
-            </span>
 
-            <span class="sub-text">
-              Products
-            </span>
+          <div class="kpi-card">
+            <span class="kpi-label">❌ Out Of Stock</span>
+            <span class="kpi-value text-red">{{ stats()?.outOfStock ?? 0 }}</span>
+            <span class="sub-text">Products</span>
           </div>
         </div>
 
@@ -200,7 +145,6 @@
                     <img [src]="productImageUrl(p.imageUrl)" loading="lazy" decoding="async" [alt]="p.name"
                       class="product-thumb" />
                   </td>
-
                   <td>
                     <div class="main-text">
                       {{ p.name }}
@@ -208,55 +152,37 @@
                         {{ p.variants.length }} var
                       </span>
                     </div>
-                    <div class="sub-text line-clamp">
-                      {{ p.description }}
-                    </div>
+                    <div class="sub-text line-clamp">{{ p.description }}</div>
                   </td>
-
                   <td>
-                    <span class="pill">
-                      {{ p.categoryName || 'Unassigned' }}
-                    </span>
+                    <span class="pill">{{ p.categoryName || 'Unassigned' }}</span>
                   </td>
-
-                  <td>
-                    ₹{{ p.price | number : '1.2-2' }}
-                  </td>
-
+                  <td>₹{{ p.price | number : '1.2-2' }}</td>
                   <td>
                     <span class="sub-text" *ngIf="p.discountPercentage; else noDisc">
                       {{ p.discountPercentage }}% off
                     </span>
                     <ng-template #noDisc><span class="text-muted">—</span></ng-template>
                   </td>
-
                   <td>
                     <span class="badge" [class.badge-danger]="p.stock === 0"
                       [class.badge-warning]="p.stock > 0 && p.stock < 10" [class.badge-success]="p.stock >= 10">
                       {{ p.stock === 0 ? 'Out of Stock' : (p.stock < 10 ? 'Low Stock (' + p.stock + ')' : 'Available ('
                         + p.stock + ')' ) }} </span>
                   </td>
-
                   <td>
                     <span class="status-dot" [class.status-green]="p.status === 'IN_STOCK'"
                       [class.status-red]="p.status === 'OUT_OF_STOCK'"></span>
                     {{ p.status }}
                   </td>
-
                   <td class="text-right action-btns">
-                    <button class="btn ghost" (click)="openEditProduct(p)">
-                      Edit
-                    </button>
-                    <button class="btn danger ghost" (click)="deleteProduct(p.productId)">
-                      Delete
-                    </button>
+                    <button class="btn ghost" (click)="openEditProduct(p)">Edit</button>
+                    <button class="btn danger ghost" (click)="deleteProduct(p.productId)">Delete</button>
                   </td>
                 </tr>
 
                 <tr *ngIf="products().length === 0">
-                  <td colspan="8" class="empty-state">
-                    No matching products discovered in the catalog inventory.
-                  </td>
+                  <td colspan="8" class="empty-state">No matching products discovered in the catalog inventory.</td>
                 </tr>
               </tbody>
             </table>
@@ -268,17 +194,9 @@
 
           <!-- Pagination -->
           <div class="pagination" *ngIf="totalPages() > 1">
-            <button class="btn ghost" [disabled]="page() === 0" (click)="goPrevPage()">
-              ‹ Prev
-            </button>
-
-            <span class="page-info">
-              Page {{ page() + 1 }} of {{ totalPages() }}
-            </span>
-
-            <button class="btn ghost" [disabled]="page() >= totalPages() - 1" (click)="goNextPage()">
-              Next ›
-            </button>
+            <button class="btn ghost" [disabled]="page() === 0" (click)="goPrevPage()">‹ Prev</button>
+            <span class="page-info">Page {{ page() + 1 }} of {{ totalPages() }}</span>
+            <button class="btn ghost" [disabled]="page() >= totalPages() - 1" (click)="goNextPage()">Next ›</button>
           </div>
         </div>
       </div>
@@ -304,7 +222,8 @@
                   </div>
                 </div>
                 <div class="category-meta-footer">
-                  <span class="badge badge-subtle">Active Taxonomy</span>
+                  <!-- productCount now comes from the server (see CategoryResponse) -->
+                  <span class="badge badge-subtle">{{ c.productCount ?? 0 }} product(s)</span>
                   <div class="category-actions">
                     <button class="btn ghost small" (click)="editCategory(c)">Edit</button>
                     <button class="btn danger ghost small" (click)="deleteCategory(c)">Delete</button>
@@ -334,9 +253,7 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Customer Order Fulfillment</span>
-            <span class="subtitle-chip" *ngIf="orders()?.length">
-              {{ orders().length }} transactions logged
-            </span>
+            <span class="subtitle-chip" *ngIf="orders()?.length">{{ orders().length }} transactions logged</span>
           </div>
 
           <div class="orders-skeleton" *ngIf="ordersLoading()">
@@ -349,6 +266,7 @@
                 <tr>
                   <th>Order Ref</th>
                   <th>Timestamp</th>
+                  <th>Customer</th>
                   <th>Shipping Address</th>
                   <th>Line Items</th>
                   <th>Gross Amount</th>
@@ -356,23 +274,38 @@
                   <th>Fulfillment Status</th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr *ngFor="let o of pagedOrders()">
                   <td class="main-text font-mono">#{{ o.orderId }}</td>
                   <td class="sub-text">{{ o.orderDate | date:'mediumDate' }}</td>
+
+                  <!-- NEW: who to ship to and which number to call -->
+                  <td class="customer-cell">
+                    <div class="main-text">{{ o.customerName || '—' }}</div>
+                    <div class="sub-text">{{ o.customerEmail }}</div>
+                    <div class="sub-text">{{ o.phoneNumber }}</div>
+                  </td>
+
                   <td class="sub-text line-clamp">{{ o.shippingAddress || 'No address provided' }}</td>
                   <td class="sub-text">{{ o.items.length || 0 }} product(s)</td>
-                  <td class="main-text">₹{{ o.totalAmount | number : '1.2-2' }}</td>
-                  <td>
-                    <span class="status-badge" [attr.data-status]="o.paymentStatus">
-                      {{ o.paymentStatus }}
-                    </span>
+                  <td class="main-text">
+                    ₹{{ o.totalAmount | number : '1.2-2' }}
+                    <div class="sub-text" *ngIf="o.promoCode">{{ o.promoCode }}: -₹{{ o.discountAmount | number :
+                      '1.2-2' }}</div>
                   </td>
                   <td>
+                    <span class="status-badge" [attr.data-status]="o.paymentStatus">{{ o.paymentStatus }}</span>
+                    <div class="refund-hint" *ngIf="o.paymentStatus === 'REFUND_PENDING'">
+                      Refund this payment in the Razorpay dashboard
+                    </div>
+                  </td>
+                  <td>
+                    <!-- Only the current status and its legal next steps are offered -->
                     <select class="input status-select" [ngModel]="o.orderStatus"
-                      [disabled]="updatingOrderId() === o.orderId"
+                      [disabled]="updatingOrderId() === o.orderId || statusChoices(o).length === 1"
                       (ngModelChange)="updateOrderStatus(o.orderId, $event)">
-                      <option *ngFor="let s of orderStatusOptions" [value]="s">{{ s }}</option>
+                      <option *ngFor="let s of statusChoices(o)" [value]="s">{{ s }}</option>
                     </select>
                   </td>
                 </tr>
@@ -395,210 +328,93 @@
         </div>
       </div>
 
-
       <!-- ANALYTICS TAB -->
       <div *ngIf="activeTab() === 'analytics'">
-
         <div class="card">
-
           <div class="card-header">
-            <span class="card-title">
-              Store Intelligence
-            </span>
-
+            <span class="card-title">Store Intelligence</span>
             <div class="range-picker">
               <button class="btn ghost small" *ngFor="let r of [7,30,90]" [class.active]="analyticsRangeDays() === r"
-                (click)="setAnalyticsRange(r)">
-                {{ r }}d
-              </button>
+                (click)="setAnalyticsRange(r)">{{ r }}d</button>
             </div>
           </div>
 
           <div class="analytics-skeleton" *ngIf="analyticsLoading()">
-
-            <div class="skeleton-row" *ngFor="let i of [1,2,3]">
-            </div>
-
+            <div class="skeleton-row" *ngFor="let i of [1,2,3]"></div>
           </div>
 
           <ng-container *ngIf="!analyticsLoading() && analytics() as a">
 
             <!-- KPI CARDS -->
-
             <div class="analytics-kpi-grid">
-
               <div class="analytics-kpi-card">
-
-                <span class="analytics-kpi-label">
-                  💰 Revenue
-                </span>
-
-                <h2>
-                  ₹{{ a.totalRevenue | number:'1.2-2' }}
-                </h2>
-
-                <span class="trend positive">
-                  Revenue Stream
-                </span>
-
+                <span class="analytics-kpi-label">💰 Revenue</span>
+                <h2>₹{{ a.totalRevenue | number:'1.2-2' }}</h2>
+                <span class="trend positive">Paid orders, last {{ analyticsRangeDays() }} days</span>
               </div>
 
               <div class="analytics-kpi-card">
-
-                <span class="analytics-kpi-label">
-                  🛒 Orders
-                </span>
-
-                <h2>
-                  {{ a.totalOrders }}
-                </h2>
-
-                <span class="trend positive">
-                  Active Fulfillment
-                </span>
-
+                <span class="analytics-kpi-label">🛒 Orders</span>
+                <h2>{{ a.totalOrders }}</h2>
+                <span class="trend positive">Paid, not cancelled</span>
               </div>
 
               <div class="analytics-kpi-card">
-
-                <span class="analytics-kpi-label">
-                  📈 Avg Basket
-                </span>
-
-                <h2>
-                  ₹{{ a.averageOrderValue | number:'1.2-2' }}
-                </h2>
-
-                <span class="trend">
-                  Per Order
-                </span>
-
+                <span class="analytics-kpi-label">📈 Avg Basket</span>
+                <h2>₹{{ a.averageOrderValue | number:'1.2-2' }}</h2>
+                <span class="trend">Per Order</span>
               </div>
-
             </div>
 
             <!-- ANALYTICS GRID -->
-
             <div class="analytics-grid">
 
-              <!-- LEFT PANEL -->
-
+              <!-- LEFT PANEL: real daily revenue. This panel used to show three FIXED sample cards
+                   ("Induction Stove ₹50,000", "Silk Cotton ₹6,000", "Barbie Doll ₹2,726.75")
+                   that never changed whatever the store sold. -->
               <div class="analytics-panel">
-
-                <h3>
-                  Recent Revenue Activity
-                </h3>
-
-                <div class="revenue-activity-list">
-
-                  <div class="activity-card">
-
-                    <div>
-                      <span class="activity-date">
-                        Top Revenue Event
-                      </span>
-
-                      <h4>
-                        Induction Stove
-                      </h4>
-                    </div>
-
-                    <strong>
-                      ₹50,000
-                    </strong>
-
+                <h3>Revenue by day</h3>
+                <div class="revenue-chart" *ngIf="a.totalOrders > 0; else noRevenue">
+                  <div class="chart-bar-wrap" *ngFor="let d of a.revenueByDay"
+                    [title]="(d.date | date:'mediumDate') + ': ₹' + (d.revenue | number:'1.2-2')">
+                    <div class="chart-bar" [style.height.%]="barHeightPercent(d.revenue)"></div>
                   </div>
-
-                  <div class="activity-card">
-
-                    <div>
-                      <span class="activity-date">
-                        Secondary Revenue
-                      </span>
-
-                      <h4>
-                        Silk Cotton
-                      </h4>
-                    </div>
-
-                    <strong>
-                      ₹6,000
-                    </strong>
-
-                  </div>
-
-                  <div class="activity-card">
-
-                    <div>
-                      <span class="activity-date">
-                        Additional Revenue
-                      </span>
-
-                      <h4>
-                        Barbie Doll
-                      </h4>
-                    </div>
-
-                    <strong>
-                      ₹2,726.75
-                    </strong>
-
-                  </div>
-
                 </div>
-
+                <ng-template #noRevenue>
+                  <div class="empty-state">No paid orders in this period yet.</div>
+                </ng-template>
+                <p class="chart-hint" *ngIf="a.totalOrders > 0">Hover a bar to see that day's revenue.</p>
               </div>
 
               <!-- RIGHT PANEL -->
-
               <div class="analytics-panel">
-
-                <h3>
-                  Quick Insights
-                </h3>
+                <h3>Quick Insights</h3>
 
                 <div class="insight-item">
                   <span>Revenue</span>
-                  <strong>
-                    ₹{{ a.totalRevenue | number:'1.2-2' }}
-                  </strong>
+                  <strong>₹{{ a.totalRevenue | number:'1.2-2' }}</strong>
                 </div>
-
                 <div class="insight-item">
                   <span>Orders</span>
-                  <strong>
-                    {{ a.totalOrders }}
-                  </strong>
+                  <strong>{{ a.totalOrders }}</strong>
                 </div>
-
                 <div class="insight-item">
                   <span>Average Basket</span>
-                  <strong>
-                    ₹{{ a.averageOrderValue | number:'1.2-2' }}
-                  </strong>
+                  <strong>₹{{ a.averageOrderValue | number:'1.2-2' }}</strong>
                 </div>
-
                 <div class="insight-item">
                   <span>Best Seller</span>
-                  <strong>
-                    Induction Stove
-                  </strong>
+                  <!-- was the fixed text "Induction Stove" -->
+                  <strong>{{ a.topProducts.length > 0 ? a.topProducts[0].productName : '—' }}</strong>
                 </div>
-
               </div>
-
             </div>
 
             <!-- TOP PRODUCTS -->
-
             <div class="top-products-section">
-
-              <h3>
-                Top Revenue Generators
-              </h3>
+              <h3>Top Revenue Generators</h3>
 
               <table class="table" *ngIf="a.topProducts.length > 0">
-
                 <thead>
                   <tr>
                     <th>Product Title</th>
@@ -606,55 +422,28 @@
                     <th>Generated Volume</th>
                   </tr>
                 </thead>
-
                 <tbody>
                   <tr *ngFor="let p of a.topProducts; let i = index">
-
                     <td>
-
                       <div class="product-cell">
-
-                        <div class="rank-badge">
-
-                          #{{ i + 1 }}
-
-                        </div>
-
-                        <span class="main-text">
-
-                          {{ p.productName }}
-
-                        </span>
-
+                        <div class="rank-badge">#{{ i + 1 }}</div>
+                        <span class="main-text">{{ p.productName }}</span>
                       </div>
-
                     </td>
-
-                    <td class="sub-text">
-                      {{ p.unitsSold }} units
-                    </td>
-
-                    <td class="main-text">
-                      ₹{{ p.revenue | number:'1.2-2' }}
-                    </td>
-
+                    <td class="sub-text">{{ p.unitsSold }} units</td>
+                    <td class="main-text">₹{{ p.revenue | number:'1.2-2' }}</td>
                   </tr>
                 </tbody>
-
               </table>
 
               <div class="empty-state" *ngIf="a.topProducts.length === 0">
-
                 No product movement registered within this timeframe.
-
               </div>
-
             </div>
-
           </ng-container>
-
         </div>
       </div>
+
     </section>
   </main>
 
@@ -663,11 +452,12 @@
     <div class="modal">
       <div class="modal-header">
         <h2>{{ isEditMode() ? 'Modify product parameters' : 'Register new catalog asset' }}</h2>
-        <button class="icon-btn" (click)="isModalOpen.set(false)">✕</button>
+        <button class="icon-btn" (click)="isModalOpen.set(false)" aria-label="Close">✕</button>
       </div>
 
       <div class="modal-body">
         <div class="form-grid">
+
           <div class="form-field">
             <label>Product Name</label>
             <input class="input" [(ngModel)]="productForm.name" placeholder="e.g. Ergonomic Studio Desk" />
@@ -675,27 +465,29 @@
 
           <div class="form-field">
             <label>Base Price (₹)</label>
-            <input class="input" type="number" min="0" [(ngModel)]="productForm.price" />
+            <input class="input" type="number" min="0.01" step="0.01" [(ngModel)]="productForm.price" />
           </div>
 
           <div class="form-field">
-            <label>Initial Stock Units</label>
-            <input class="input" type="number" min="0" [(ngModel)]="productForm.stock" />
+            <label>Stock Units</label>
+            <input class="input" type="number" min="0" [(ngModel)]="productForm.stock"
+              [disabled]="productForm.variants.length > 0" />
+            <span class="form-note" *ngIf="productForm.variants.length > 0">
+              With variants, stock is the total of the variant stocks below.
+            </span>
           </div>
 
           <div class="form-field">
             <label>Taxonomy Category</label>
             <select class="input" [(ngModel)]="productForm.categoryId">
               <option [ngValue]="0" disabled>Select structural category</option>
-              <option *ngFor="let c of categories()" [ngValue]="c.categoryId">
-                {{ c.name }}
-              </option>
+              <option *ngFor="let c of categories()" [ngValue]="c.categoryId">{{ c.name }}</option>
             </select>
           </div>
 
           <div class="form-field full">
             <label>Detailed Description</label>
-            <textarea class="input" rows="3" [(ngModel)]="productForm.description"
+            <textarea class="input" rows="3" maxlength="500" [(ngModel)]="productForm.description"
               placeholder="Highlight architecture, features, and specs..."></textarea>
           </div>
 
@@ -717,23 +509,14 @@
             </div>
           </div>
 
-          <div class="form-field">
-            <label>Fulfillment Availability</label>
-            <select class="input" [(ngModel)]="productForm.status">
-              <option [ngValue]="'IN_STOCK'">In Stock</option>
-              <option [ngValue]="'OUT_OF_STOCK'">Out of Stock</option>
-            </select>
-          </div>
-
-          <div class="form-field">
-            <label>Rating Index (0 - 5)</label>
-            <input type="number" class="input" min="0" max="5" step="0.1" [(ngModel)]="productForm.rating"
-              placeholder="4.8" />
-          </div>
-
-          <div class="form-field">
-            <label>Review Aggregate Count</label>
-            <input type="number" class="input" min="0" [(ngModel)]="productForm.reviewCount" placeholder="128" />
+          <!-- "Fulfillment Availability" (status) and the Rating / Review-count inputs were removed:
+               the server ignores all three. Status follows stock automatically (0 = Out of Stock) and
+               ratings come only from real customer reviews. -->
+          <div class="form-field full">
+            <span class="form-note">
+              Availability is automatic: a product with 0 stock shows as Out of Stock. Ratings come only from real
+              customer reviews.
+            </span>
           </div>
 
           <div class="form-field">
@@ -754,23 +537,24 @@
           </p>
 
           <div class="variant-row" *ngFor="let v of productForm.variants; let i = index">
-            <input class="input" placeholder="Size (e.g. Large)" [(ngModel)]="v.size" [name]="'vsize' + i" />
-            <input class="input" placeholder="Color (e.g. Obsidian)" [(ngModel)]="v.color" [name]="'vcolor' + i" />
+            <input class="input" placeholder="Size (e.g. Large)" [(ngModel)]="v.size" [name]="'vsize' + i"
+              maxlength="30" />
+            <input class="input" placeholder="Color (e.g. Obsidian)" [(ngModel)]="v.color" [name]="'vcolor' + i"
+              maxlength="30" />
             <input class="input" type="number" min="0" placeholder="Stock" [(ngModel)]="v.stock"
               [name]="'vstock' + i" />
-            <input class="input" type="number" min="0" placeholder="Price Override" [(ngModel)]="v.priceOverride"
-              [name]="'vprice' + i" />
-            <input class="input" placeholder="SKU Code" [(ngModel)]="v.sku" [name]="'vsku' + i" />
+            <input class="input" type="number" min="0.01" step="0.01" placeholder="Price Override"
+              [(ngModel)]="v.priceOverride" [name]="'vprice' + i" />
+            <input class="input" placeholder="SKU Code" [(ngModel)]="v.sku" [name]="'vsku' + i" maxlength="60" />
             <button type="button" class="remove-variant-btn" (click)="removeVariantRow(i)"
               aria-label="Remove configuration">×</button>
           </div>
         </div>
       </div>
+
       <div class="modal-footer">
-        <button class="btn ghost" (click)="isModalOpen.set(false)">
-          Cancel
-        </button>
-        <button class="btn primary" (click)="saveProduct()">
+        <button class="btn ghost" (click)="isModalOpen.set(false)">Cancel</button>
+        <button class="btn primary" [disabled]="loading()" (click)="saveProduct()">
           {{ isEditMode() ? 'Commit changes' : 'Initialize product' }}
         </button>
       </div>

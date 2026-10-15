@@ -65,7 +65,6 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse } from '../Models/User.model';
 import { ProductResponse, ProductRequest } from '../Models/Product.model';
-
 // Generic Spring Data-style Page response
 export interface Page<T> {
   content: T[];
@@ -73,6 +72,12 @@ export interface Page<T> {
   totalPages: number;
   size: number;
   number: number;        // current page index (0-based)
+}
+export interface ProductStats {
+  total: number;
+  inStock: number;
+  lowStock: number;
+  outOfStock: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -146,6 +151,9 @@ export class ProductService {
       'http://localhost:8080/api/admin/products/upload-image',
       formData
     );
+  }
+  getStats(): Observable<ApiResponse<ProductStats>> {
+    return this.http.get<ApiResponse<ProductStats>>('http://localhost:8080/api/admin/products/stats');
   }
 
 }

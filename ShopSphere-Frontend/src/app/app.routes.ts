@@ -1,11 +1,11 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from './Guards/admin-guard';
+import { authGuard } from './Guards/auth-guard';
 import { AdminDashboard } from './Components/admin-dashboard/admin-dashboard';
 import { Login } from './Components/login/login';
 import { ProductDashboard } from './Components/product-dashboard/product-dashboard';
 import { Register } from './Components/register/register';
 import { Cart } from './Components/cart/cart';
-// Import your new components
 import { CheckoutPage } from './Components/checkout/checkout';
 import { OrderSuccess } from './Components/order-succes/order-succes';
 import { MyOrdersPage } from './Components/my-orders-page/my-orders-page';
@@ -17,8 +17,7 @@ import { AdminLayout } from './layouts/admin-layout/admin-layout';
 import { CategoriesPage } from './Components/categories-page/categories-page';
 
 export const routes: Routes = [
-  // Browsing products is public on the backend (GET /api/products/** is
-  // permitAll()) - the homepage should reflect that, not force a login wall.
+  // Browsing is public (GET /api/products/** is permitAll on the backend).
   { path: '', redirectTo: 'products', pathMatch: 'full' },
   { path: 'login', component: Login },
   { path: 'register', component: Register },
@@ -26,39 +25,24 @@ export const routes: Routes = [
   { path: 'products/:id', component: ProductDetail },
   { path: 'terms', component: TermsOfService },
   { path: 'privacy', component: PrivacyPolicy },
-  { path: 'cart', component: Cart },
-  { path: 'wishlist', component: WishlistPage },
-  {
-  path: 'categories',
-  component: CategoriesPage
-},
+  { path: 'categories', component: CategoriesPage },
 
-  // --- NEW PURCHASE FLOW ROUTES ---
-  {
-    path: 'checkout',
-    component: CheckoutPage
-    // canActivate: [userGuard] // Add this later to ensure only logged-in users buy
-  },
-  {
-    path: 'order-success',
-    component: OrderSuccess
-  },
-  {
-    path: 'my-orders',
-    component: MyOrdersPage
-  },
+  // Pages that only make sense when logged in. authGuard (it already existed but was never
+  // used) sends guests to /login and returns them here afterwards. Before, a guest could open
+  // these pages and just got a wall of failed requests.
+  { path: 'cart', component: Cart, canActivate: [authGuard] },
+  { path: 'wishlist', component: WishlistPage, canActivate: [authGuard] },
+  { path: 'checkout', component: CheckoutPage, canActivate: [authGuard] },
+  { path: 'order-success', component: OrderSuccess, canActivate: [authGuard] },
+  { path: 'my-orders', component: MyOrdersPage, canActivate: [authGuard] },
+
   {
     path: 'admindashboard',
     component: AdminLayout,
     canActivate: [adminGuard],
-    children: [
-      {
-        path: '',
-        component: AdminDashboard
-      }
-    ]
+    children: [{ path: '', component: AdminDashboard }],
   },
 
   // Fallback
-  { path: '**', redirectTo: '' }
+  { path: '**', redirectTo: '' },
 ];

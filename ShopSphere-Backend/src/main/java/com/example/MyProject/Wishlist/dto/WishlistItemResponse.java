@@ -1,10 +1,7 @@
 package com.example.MyProject.Wishlist.dto;
-
 import com.example.MyProject.Product.Dto.ProductResponse;
 import lombok.*;
-
 import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor

@@ -32,6 +32,9 @@ export interface OrderResponse {
   discountAmount?: number | null;
   shippingAddress: string;
   items: OrderItemResponse[];
+  customerName?: string;
+  customerEmail?: string;
+  phoneNumber?: string;
 }
 // PaymentRequest and RazorpayOrderResponse stay as they are.
 export interface PaymentRequest {

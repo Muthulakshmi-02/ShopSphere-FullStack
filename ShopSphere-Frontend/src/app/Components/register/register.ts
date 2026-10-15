@@ -16,19 +16,39 @@ export class Register {
   private authService = inject(AuthService);
   private router = inject(Router);
 
-  // UI State Signals
   isLoading = signal(false);
   errorMessage = signal<string | null>(null);
   showPassword = signal(false);
 
-  // Registration Form Definition
-  // NOTE: no role field here on purpose. Public self-registration always
-  // creates a USER account; the backend also enforces this independently.
+  // The same rules the server enforces now (RegisterUserDto), so the user hears about a problem
+  // while typing instead of after submitting. No role field: the server always assigns USER.
   registerForm = this.fb.nonNullable.group({
-    userName: ['', [Validators.required, Validators.minLength(2)]],
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(8)]]
+    userName: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(30)]],
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(100)]],
+    password: ['', [
+      Validators.required,
+      Validators.minLength(8),
+      Validators.maxLength(72),
+      Validators.pattern(/^(?=.*[A-Za-z])(?=.*\d).+$/)
+    ]]
   });
+
+  // The specific message for a field, or null while it is untouched / valid.
+  fieldError(name: 'userName' | 'email' | 'password'): string | null {
+    const c = this.registerForm.get(name);
+    if (!c || !c.touched || !c.errors) return null;
+
+    if (name === 'userName') {
+      if (c.errors['required']) return 'Name is required';
+      return 'Name must be 3 to 30 characters';
+    }
+    if (name === 'email') {
+      return 'Valid email required';
+    }
+    if (c.errors['required']) return 'Password is required';
+    if (c.errors['minlength'] || c.errors['maxlength']) return 'Password must be 8 to 72 characters';
+    return 'Password needs at least one letter and one number';
+  }
 
   onSubmit() {
     if (this.registerForm.invalid) {
@@ -39,22 +59,22 @@ export class Register {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    // Call AuthService register
     this.authService.register(this.registerForm.getRawValue()).subscribe({
       next: (res) => {
         if (res.success) {
-          console.log('✅ Registration successful, redirecting to login...');
-          this.router.navigate(['/login']);
+          // The login page shows "Account created. Please sign in."
+          this.router.navigate(['/login'], { queryParams: { registered: '1' } });
         } else {
-          // Handle cases where the server returns success: false
           this.errorMessage.set(res.message || 'Registration failed. Try a different email.');
           this.isLoading.set(false);
         }
       },
       error: (err) => {
-        console.error('❌ Registration Error:', err);
-        // Display specific error (e.g., "Email already exists") from backend
-        this.errorMessage.set(err.error?.message || 'Could not complete registration. Please try again.');
+        this.errorMessage.set(
+          err.status === 0
+            ? "Can't reach the server. Please try again."
+            : (err.error?.message || 'Could not complete registration. Please try again.')
+        );
         this.isLoading.set(false);
       }
     });

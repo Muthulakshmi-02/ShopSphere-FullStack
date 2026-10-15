@@ -4,6 +4,7 @@
 export interface CategoryResponse {
   categoryId: number;
   name: string;
+  productCount?: number;
   description: string;
 }
 

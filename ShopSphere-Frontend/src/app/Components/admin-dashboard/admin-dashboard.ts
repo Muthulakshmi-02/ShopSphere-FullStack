@@ -1,8 +1,7 @@
-// 
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ProductService, Page } from '../../Services/product-service';
+import { ProductService, Page, ProductStats } from '../../Services/product-service';
 import { CategoryService } from '../../Services/category-service';
 import {
   ProductResponse,
@@ -20,6 +19,17 @@ import { OrderResponse } from '../../Models/Order.model';
 import { ToastService } from '../../shared/toast/toast-service';
 import { ConfirmService } from '../../shared/confirm-modal/confirm-service';
 import { MatIconModule } from '@angular/material/icon';
+
+// Which status an order may move to next. Mirrors OrderService.updateOrderStatus on the server,
+// which refuses everything else (e.g. a CANCELLED order cannot become DELIVERED).
+const NEXT_STATUSES: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['SHIPPED', 'CANCELLED'],
+  SHIPPED: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELLED: [],
+};
+
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
@@ -34,8 +44,8 @@ export class AdminDashboard implements OnInit {
   private analyticsService = inject(AnalyticsService);
   private toastService = inject(ToastService);
   private confirmService = inject(ConfirmService);
+
   protected readonly productImageUrl = productImageUrl;
-  protected readonly orderStatusOptions = ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
   // View state
   activeTab = signal<'products' | 'categories' | 'orders' | 'analytics' | ''>('products');
@@ -51,6 +61,10 @@ export class AdminDashboard implements OnInit {
   orders = signal<OrderResponse[]>([]);
   ordersLoading = signal(false);
 
+  // Catalog-wide stock numbers from the server. The cards used to count only the products on
+  // the CURRENT PAGE (10 at a time), so they were wrong for any catalog bigger than one page.
+  stats = signal<ProductStats | null>(null);
+
   // --- Analytics tab ---
   analytics = signal<AnalyticsResponse | null>(null);
   analyticsLoading = signal(false);
@@ -62,24 +76,10 @@ export class AdminDashboard implements OnInit {
     return Math.max(...data.revenueByDay.map(p => p.revenue), 1);
   });
 
-
   openAnalyticsTab(): void {
     this.activeTab.set('analytics');
     this.loadAnalytics();
   }
-  inStockCount = computed(() =>
-    this.products().filter(p => p.stock > 0).length
-  );
-
-  outOfStockCount = computed(() =>
-    this.products().filter(p => p.stock === 0).length
-  );
-
-  lowStockCount = computed(() =>
-    this.products().filter(
-      p => p.stock > 0 && p.stock <= 10
-    ).length
-  );
 
   loadAnalytics(): void {
     this.analyticsLoading.set(true);
@@ -88,8 +88,7 @@ export class AdminDashboard implements OnInit {
         this.analytics.set(res.data ?? null);
         this.analyticsLoading.set(false);
       },
-      error: (err) => {
-        console.error('Failed to load analytics', err);
+      error: () => {
         this.analyticsLoading.set(false);
         this.toastService.error('Could not load analytics.');
       },
@@ -143,10 +142,13 @@ export class AdminDashboard implements OnInit {
   }
 
   currentSort = 'price,asc';
-
   productForm: ProductRequest = this.initProductForm();
   categoryForm: CategoryRequest = { name: '', description: '' };
   editingCategoryId = signal<number | null>(null);
+
+  // Search is debounced and out-of-order responses are ignored (see loadProducts).
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private productRequestId = 0;
 
   ngOnInit(): void {
     this.loadAll();
@@ -154,8 +156,16 @@ export class AdminDashboard implements OnInit {
 
   loadAll(): void {
     this.loadProducts();
+    this.loadStats();
     this.loadCategories();
     this.loadOrders();
+  }
+
+  loadStats(): void {
+    this.productService.getStats().subscribe({
+      next: (res) => this.stats.set(res.data ?? null),
+      error: () => this.stats.set(null),
+    });
   }
 
   loadOrders(): void {
@@ -166,54 +176,59 @@ export class AdminDashboard implements OnInit {
         this.orders.set(list);
         this.ordersLoading.set(false);
       },
-      error: (err) => {
-        console.error('Failed to load orders', err);
+      error: () => {
         this.ordersLoading.set(false);
         this.toastService.error('Could not load orders.');
       },
     });
   }
 
+  // The statuses offered in an order's dropdown: its current one plus the legal next steps.
+  statusChoices(order: OrderResponse): string[] {
+    return [order.orderStatus, ...(NEXT_STATUSES[order.orderStatus] ?? [])];
+  }
+
   updateOrderStatus(orderId: number, status: string): void {
     this.updatingOrderId.set(orderId);
     this.orderService.updateOrderStatus(orderId, status).subscribe({
-      next: () => {
+      next: (res) => {
         this.updatingOrderId.set(null);
+        // Use the server's answer: delivering a COD order also flips its payment to PAID.
+        const updated: OrderResponse | undefined = res?.data;
         this.orders.update(list =>
-          list.map(o => (o.orderId === orderId ? { ...o, orderStatus: status } : o))
+          list.map(o => (o.orderId === orderId ? { ...o, ...(updated ?? { orderStatus: status }) } : o))
         );
         this.toastService.success(`Order #${orderId} marked ${status}.`);
       },
       error: (err) => {
         this.updatingOrderId.set(null);
-        console.error('Failed to update order status', err);
-        this.toastService.error('Could not update order status.');
+        // The server explains WHY (e.g. "This card order has not been paid yet"); show it.
+        this.toastService.error(err.error?.message || 'Could not update order status.');
+        // Put the dropdown back to the real status.
+        this.loadOrders();
       },
     });
   }
 
   loadProducts(): void {
+    const requestId = ++this.productRequestId;
     this.loading.set(true);
-
     this.productService
-      .getFilteredProducts(
-        this.searchTerm(),
-        null,
-        0,
-        1_000_000,
-        this.page(),
-        this.size(),
-        this.currentSort
-      )
+      .getFilteredProducts(this.searchTerm(), null, 0, 1_000_000, this.page(), this.size(), this.currentSort)
       .subscribe({
         next: (res) => {
+          if (requestId !== this.productRequestId) return;   // a newer search already replaced this one
           const data = res.data as Page<ProductResponse> | undefined;
           this.products.set(data?.content || []);
           this.totalPages.set(data?.totalPages || 0);
           this.totalElements.set(data?.totalElements || 0);
           this.loading.set(false);
         },
-        error: () => this.loading.set(false),
+        error: () => {
+          if (requestId !== this.productRequestId) return;
+          this.loading.set(false);
+          this.toastService.error('Could not load products.');
+        },
       });
   }
 
@@ -225,12 +240,14 @@ export class AdminDashboard implements OnInit {
           this.categoriesCurrentPage.set(this.categoriesTotalPages());
         }
       },
+      error: () => this.toastService.error('Could not load categories.'),
     });
   }
 
   openAddProduct(): void {
     this.isEditMode.set(false);
     this.productForm = this.initProductForm();
+    window.scrollTo({ top: 0, behavior: 'instant' });
     this.isModalOpen.set(true);
   }
 
@@ -244,8 +261,9 @@ export class AdminDashboard implements OnInit {
       stock: p.stock,
       imageUrl: p.imageUrl,
       status: p.status,
-      rating: p.rating ?? null,
-      reviewCount: p.reviewCount ?? null,
+      // Ratings now come only from real customer reviews; the server ignores these two.
+      rating: null,
+      reviewCount: null,
       discountPercentage: p.discountPercentage ?? null,
       categoryId: p.categoryId,
       variants: (p.variants ?? []).map(v => ({
@@ -257,6 +275,7 @@ export class AdminDashboard implements OnInit {
         sku: v.sku,
       })),
     };
+    window.scrollTo({ top: 0, behavior: 'instant' });
     this.isModalOpen.set(true);
   }
 
@@ -264,6 +283,13 @@ export class AdminDashboard implements OnInit {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+
+    // Instant feedback; the server checks the real file contents again.
+    if (file.size > 5 * 1024 * 1024) {
+      this.toastService.error('Image is too large - max size is 5MB.');
+      input.value = '';
+      return;
+    }
 
     this.uploadingImage.set(true);
     this.productService.uploadImage(file).subscribe({
@@ -300,8 +326,35 @@ export class AdminDashboard implements OnInit {
     this.productForm.variants.splice(index, 1);
   }
 
+  // Same rules the server enforces, so mistakes are caught before the confirm dialog.
+  private validateProductForm(): string | null {
+    const f = this.productForm;
+    const name = (f.name ?? '').trim();
+    if (name.length < 3 || name.length > 100) return 'Product name must be 3 to 100 characters.';
+    if (!(f.description ?? '').trim()) return 'Please add a description.';
+    if (f.description.length > 500) return 'Description must be 500 characters or fewer.';
+    if (f.price == null || f.price < 0.01) return 'Price must be at least 0.01.';
+    if (!f.categoryId || f.categoryId <= 0) return 'Please choose a category.';
+    if (!f.imageUrl) return 'Please upload a product image.';
+    if (f.discountPercentage != null && (f.discountPercentage < 0 || f.discountPercentage > 90)) {
+      return 'Discount must be between 0 and 90%.';
+    }
+    if (f.variants.length === 0 && (f.stock == null || f.stock < 0)) return 'Stock cannot be negative.';
+    for (const v of f.variants) {
+      if (!(v.size ?? '').trim() && !(v.color ?? '').trim()) return 'Each variant needs a size or a color.';
+      if (v.stock == null || v.stock < 0) return 'Variant stock cannot be negative.';
+      if (v.priceOverride != null && v.priceOverride < 0.01) return 'A variant price override must be at least 0.01 (or leave it empty).';
+    }
+    return null;
+  }
+
   async saveProduct(): Promise<void> {
-    console.log('SAVE BUTTON CLICKED');
+    const problem = this.validateProductForm();
+    if (problem) {
+      this.toastService.error(problem);
+      return;
+    }
+
     const confirmed = await this.confirmService.ask({
       title: this.isEditMode() ? 'Save changes?' : 'Create product?',
       message: this.isEditMode()
@@ -317,11 +370,18 @@ export class AdminDashboard implements OnInit {
 
     this.loading.set(true);
     request.subscribe({
-      next: () => {
-        this.isModalOpen.set(false);
+      next: (res) => {
         this.loading.set(false);
+        // A duplicate product name comes back as HTTP 200 with success:false. This used to be
+        // reported as "Product created" and the form closed, although nothing was saved.
+        if (!res.success) {
+          this.toastService.error(res.message || 'Could not save the product.');
+          return;
+        }
+        this.isModalOpen.set(false);
         this.toastService.success(this.isEditMode() ? 'Product updated.' : 'Product created.');
         this.loadProducts();
+        this.loadStats();
       },
       error: (err) => {
         this.loading.set(false);
@@ -332,8 +392,8 @@ export class AdminDashboard implements OnInit {
 
   saveCategory(): void {
     if (!this.categoryForm.name.trim()) return;
-
     const editingId = this.editingCategoryId();
+
     const request = editingId
       ? this.categoryService.updateCategory(editingId, this.categoryForm)
       : this.categoryService.createCategory(this.categoryForm);
@@ -397,10 +457,15 @@ export class AdminDashboard implements OnInit {
 
     this.loading.set(true);
     this.productService.deleteProduct(id).subscribe({
-      next: () => {
+      next: (res) => {
         this.loading.set(false);
+        if (!res.success) {
+          this.toastService.error(res.message || 'Could not delete product.');
+          return;
+        }
         this.toastService.success('Product deleted.');
         this.loadProducts();
+        this.loadStats();
       },
       error: (err) => {
         this.loading.set(false);
@@ -409,10 +474,12 @@ export class AdminDashboard implements OnInit {
     });
   }
 
+  // Waits 300 ms after the last keystroke instead of sending a request for every letter.
   onSearchChange(value: string): void {
     this.searchTerm.set(value);
     this.page.set(0);
-    this.loadProducts();
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.loadProducts(), 300);
   }
 
   goPrevPage(): void {
@@ -450,15 +517,6 @@ export class AdminDashboard implements OnInit {
       variants: [],
     };
   }
-  // Example inside your AdminDashboard component:
-  openAddProductModal() {
-    window.scrollTo({ top: 0, behavior: 'instant' }); // Resets page scroll so modal is immediately visible
-    this.isModalOpen.set(true);
-  }
-
-  openEditProductModal(product: any) {
-    window.scrollTo({ top: 0, behavior: 'instant' }); // Resets page scroll so modal is immediately visible
-    this.isModalOpen.set(true);
-  }
-
+  // The leftover openAddProductModal() / openEditProductModal(product: any) at the bottom were
+  // removed: they only opened the modal WITHOUT resetting or filling the form, and nothing used them.
 }

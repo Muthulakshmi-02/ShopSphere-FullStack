@@ -196,3 +196,14 @@ button[type="submit"]:disabled {
     margin: 0.5rem;
   }
 }
+
+/* Add to the END of login.css (and delete the old .demo-credentials rule, no longer used) */
+.alert-info {
+  background: rgba(61, 232, 255, 0.1);
+  color: #3DE8FF;
+  padding: 0.875rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #3DE8FF;
+  font-weight: 500;
+}

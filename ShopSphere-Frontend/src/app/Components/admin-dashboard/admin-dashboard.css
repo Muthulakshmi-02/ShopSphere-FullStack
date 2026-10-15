@@ -1269,3 +1269,34 @@ textarea.input {
         grid-template-columns: 1fr;
     }
 }
+
+/* Add to the END of admin-dashboard.css */
+
+/* The two statuses the admin most needs to see had no colour: CONFIRMED and REFUND_PENDING */
+.status-badge[data-status="CONFIRMED"] {
+    background: rgba(46, 204, 113, 0.12);
+    color: #2ECC71;
+}
+
+.status-badge[data-status="REFUND_PENDING"] {
+    background: rgba(255, 176, 32, 0.18);
+    color: #FFB020;
+}
+
+.refund-hint {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    color: #FFB020;
+    max-width: 180px;
+}
+
+.customer-cell {
+    min-width: 170px;
+}
+
+.form-note {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+}

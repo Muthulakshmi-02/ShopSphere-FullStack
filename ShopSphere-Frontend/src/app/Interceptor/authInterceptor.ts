@@ -1,24 +1,37 @@
-import { HttpInterceptorFn } from '@angular/common/http';
+import { Injector, inject } from '@angular/core';
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { catchError, throwError } from 'rxjs';
+import { AuthService } from '../Services/auth-service';
+
+// Move to an environment file before deploying (the same value is used in several services).
+const API_ORIGIN = 'http://localhost:8080';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  // SSR SAFETY FIX: sessionStorage doesn't exist on the server (main.server.ts
-  // renders this app with Angular Universal), so guard the access or every
-  // SSR request would throw a ReferenceError.
+  const injector = inject(Injector);
+
+  // sessionStorage does not exist during server-side rendering.
   const token = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('token') : null;
 
-  // Check if token exists and request is going to your backend
-  if (token && req.url.includes('localhost:8080')) {
+  // startsWith, not includes(): the old check matched "localhost:8080" ANYWHERE in the URL, so a
+  // request to any other site with that text in its path or query string would have been sent
+  // your login token.
+  const isApiCall = req.url.startsWith(API_ORIGIN + '/');
 
-    // Clean the token: remove "Bearer " if it's already there to avoid "Bearer Bearer"
-    const cleanToken = token.replace('Bearer ', '');
-
-    const cloned = req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${cleanToken}` // Notice the SPACE after Bearer
-      }
-    });
-    return next(cloned);
+  let request = req;
+  if (token && isApiCall) {
+    const cleanToken = token.replace(/^Bearer\s+/i, '');
+    request = req.clone({ setHeaders: { Authorization: `Bearer ${cleanToken}` } });
   }
 
-  return next(req);
+  return next(request).pipe(
+    catchError((err: HttpErrorResponse) => {
+      // 401 = the token is missing, expired or invalid. Send the user back to login with an
+      // explanation. Login/register calls are excluded: a wrong password must show an error
+      // on the form, not "session expired".
+      if (err.status === 401 && token && isApiCall && !req.url.includes('/api/auth/')) {
+        injector.get(AuthService).sessionExpired();
+      }
+      return throwError(() => err);
+    })
+  );
 };

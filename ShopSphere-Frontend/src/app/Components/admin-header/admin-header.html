@@ -1,52 +1,27 @@
 <header class="admin-header">
-
     <div class="left-section">
-
         <div class="logo-wrapper">
-
-            <div class="logo">
-                S
-            </div>
-
+            <div class="logo">S</div>
             <div class="brand-info">
                 <h2>ShopSphere Admin</h2>
                 <span>Inventory Management Platform</span>
             </div>
-
         </div>
-
     </div>
 
     <div class="right-section">
-
-        <button class="action-btn">
-            🔔
-        </button>
-
-        <button class="action-btn">
-            ⚙️
-        </button>
+        <!-- The bell and settings buttons were removed: they did nothing. -->
+        <a class="store-link" routerLink="/products">View store</a>
 
         <div class="profile-card">
-
-            <div class="avatar">
-                M
-            </div>
-
+            <div class="avatar">{{ initials() }}</div>
             <div class="profile-info">
-
-                <strong>
-                    Muthulakshmi B
-                </strong>
-
-                <small>
-                    System Administrator
-                </small>
-
+                <strong>{{ user()?.userName }}</strong>
+                <small>System Administrator</small>
             </div>
-
         </div>
 
+        <!-- The admin area had NO way to log out. -->
+        <button type="button" class="logout-btn" (click)="logout()">Log out</button>
     </div>
-
 </header>

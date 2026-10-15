@@ -173,3 +173,36 @@
 
     font-size: 12px;
 }
+
+/* Add to the END of admin-header.css (the old .action-btn rule is no longer used) */
+.store-link {
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 10px 14px;
+    border-radius: 12px;
+    transition: .2s ease;
+}
+
+.store-link:hover {
+    color: white;
+    background: #1f2937;
+}
+
+.logout-btn {
+    height: 46px;
+    padding: 0 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 61, 113, .35);
+    background: rgba(255, 61, 113, .1);
+    color: #ff3d71;
+    font-weight: 700;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 61, 113, .2);
+    transform: translateY(-2px);
+}
