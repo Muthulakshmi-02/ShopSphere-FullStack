@@ -1,21 +1,16 @@
-import { Component, OnInit, signal, inject, effect, computed } from '@angular/core';
+import { Component, OnInit, signal, inject, effect } from '@angular/core';
 import { ProductService, Page } from '../../Services/product-service';
 import { CategoryService } from '../../Services/category-service';
 import { CartService } from '../../Services/cart-service';
 import { ProductResponse } from '../../Models/Product.model';
 import { CategoryResponse } from '../../Models/Category.model';
-import { Router, RouterLink } from '@angular/router';
-import { ActivatedRoute } from '@angular/router';
-import {
-  CommonModule,
-  CurrencyPipe,
-  NgFor,
-  NgIf,
-} from '@angular/common';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
+import { CommonModule, CurrencyPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../shared/toast/toast-service';
 import { WishlistService } from '../../Services/wishlist-service';
 import { AuthService } from '../../Services/auth-service';
+import { productImageUrl } from '../../shared/api.config';
 
 export interface SortOption {
   value: string;
@@ -25,7 +20,7 @@ export interface SortOption {
 @Component({
   selector: 'app-product-dashboard',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, FormsModule, NgFor, RouterLink],
+  imports: [CommonModule, CurrencyPipe, FormsModule, NgFor, NgIf, RouterLink],
   templateUrl: './product-dashboard.html',
   styleUrls: ['./product-dashboard.css'],
 })
@@ -38,26 +33,33 @@ export class ProductDashboard implements OnInit {
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+
+  // Same image helper the cart and detail pages use (was: a hard-coded http://localhost:8080 here).
+  protected readonly productImageUrl = productImageUrl;
+
   // ---------- State ----------
   products = signal<ProductResponse[]>([]);
   categories = signal<CategoryResponse[]>([]);
   totalProducts = signal<number>(0);
   totalPages = signal<number>(0);
   loading = signal<boolean>(false);
+  loadError = signal<boolean>(false);
   pageNumbers = signal<number[]>([]);
-  readonly API_URL = 'http://localhost:8080';
 
   // ---------- Filters & pagination ----------
+  // searchInput = what is in the box right now; searchKeyword = what the list is filtered by
+  // (it follows searchInput 300 ms after the last keystroke).
+  searchInput = signal<string>('');
   searchKeyword = signal<string>('');
   selectedCategory = signal<number | null>(null);
   selectedSort = signal<string>('price,asc');
   currentPage = signal<number>(0);
   pageSize = signal<number>(12);
-  categoryCounts = signal<Record<number, number>>({});
-  recentlyViewed = signal<ProductResponse[]>([]);
-  selectedProduct = signal<ProductResponse | null>(null);
 
-  showQuickView = signal(false);
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  // Slower, older responses must not overwrite a newer one.
+  private requestId = 0;
+
   sortOptions: SortOption[] = [
     { value: 'price,asc', label: 'Price: Low to High' },
     { value: 'price,desc', label: 'Price: High to Low' },
@@ -74,49 +76,35 @@ export class ProductDashboard implements OnInit {
         this.currentPage();
         this.pageSize();
         this.loadProducts();
-        this.currentPage();
         this.syncFiltersToUrl();
       },
       { allowSignalWrites: true },
     );
   }
 
-  // ngOnInit() {
-  //   this.loadCategories();
-  //   this.loadProducts();
-
-  //   // Wishlist is a per-user feature (backend requires auth) - only fetch
-  //   // it if someone's actually logged in, otherwise leave hearts unfilled.
-  //   if (this.authService.isLoggedIn()) {
-  //     this.wishlistService.loadWishlistIds().subscribe({
-  //       error: (err) => console.error('Failed to load wishlist', err),
-  //     });
-  //   }
-  // }
   ngOnInit() {
-
     this.loadCategories();
 
     this.route.queryParams.subscribe(params => {
+      const search = params['search'] || '';
+      // Only when the URL differs from what is applied (back button, shared link). Without this
+      // check, the URL update that follows each search would reset the text box while typing.
+      if (search !== this.searchKeyword()) {
+        this.searchKeyword.set(search);
+        this.searchInput.set(search);
+      }
 
-      this.searchKeyword.set(
-        params['search'] || ''
-      );
-
-      this.selectedCategory.set(
-
-        params['category']
-          ? Number(params['category'])
-          : null
-
-      );
-
-      this.selectedSort.set(
-        params['sort'] || 'price,asc'
-      );
-
+      this.selectedCategory.set(params['category'] ? Number(params['category']) : null);
+      this.selectedSort.set(params['sort'] || 'price,asc');
     });
 
+    // Restored: the rewritten ngOnInit had dropped this, so hearts were never filled after a
+    // refresh. Wishlist is a per-customer feature, so only fetch it for a logged-in customer.
+    if (this.authService.isLoggedIn() && !this.authService.isAdmin()) {
+      this.wishlistService.loadWishlistIds().subscribe({
+        error: (err) => console.error('Failed to load wishlist', err),
+      });
+    }
   }
 
   loadCategories() {
@@ -127,7 +115,10 @@ export class ProductDashboard implements OnInit {
   }
 
   loadProducts() {
+    const requestId = ++this.requestId;
     this.loading.set(true);
+    this.loadError.set(false);
+
     this.productService
       .getFilteredProducts(
         this.searchKeyword() || '',
@@ -140,62 +131,40 @@ export class ProductDashboard implements OnInit {
       )
       .subscribe({
         next: (res) => {
+          if (requestId !== this.requestId) return;
 
-          const page = (res.data as Page<ProductResponse>) || {
-            content: [],
-            totalElements: 0,
-            totalPages: 1
-          };
-
+          const page = (res.data as Page<ProductResponse>) || { content: [], totalElements: 0, totalPages: 1 };
           const content = page.content || [];
-
-          const totalElements =
-            page.totalElements ?? content.length;
-
-          const totalPages =
-            page.totalPages ?? 1;
+          const totalElements = page.totalElements ?? content.length;
+          const totalPages = page.totalPages ?? 1;
 
           this.products.set(content);
-
-          // ✅ Category Counts
-          const counts: Record<number, number> = {};
-
-          content.forEach(product => {
-
-            counts[product.categoryId] =
-              (counts[product.categoryId] || 0) + 1;
-
-          });
-
-          this.categoryCounts.set(counts);
-
           this.totalProducts.set(totalElements);
-
           this.totalPages.set(totalPages);
-      
-
-          this.pageNumbers.set(
-            Array.from(
-              { length: totalPages },
-              (_, i) => i
-            )
-          );
-
+          this.pageNumbers.set(Array.from({ length: totalPages }, (_, i) => i));
           this.loading.set(false);
-
         },
         error: (err) => {
+          if (requestId !== this.requestId) return;
           console.error('Failed to load products', err);
           this.loading.set(false);
+          // Used to look exactly like "no products found"; a failing server is not an empty shop.
+          this.loadError.set(true);
         },
       });
   }
 
-  // ---------- Type-Safe Event Handlers ----------
+  // ---------- Event handlers ----------
   onSearchInput(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.searchKeyword.set(target.value || '');
-    this.currentPage.set(0);
+    const value = (event.target as HTMLInputElement).value || '';
+    this.searchInput.set(value);
+
+    // One request after the user stops typing, instead of one per keystroke.
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.searchKeyword.set(value.trim());
+      this.currentPage.set(0);
+    }, 300);
   }
 
   onSortChangeSafe(event: Event): void {
@@ -217,7 +186,7 @@ export class ProductDashboard implements OnInit {
       next: (res) => {
         this.toastService.success(res.data ? 'Added to wishlist.' : 'Removed from wishlist.');
       },
-      error: () => this.toastService.error('Could not update wishlist.'),
+      error: (err) => this.toastService.error(err.error?.message || 'Could not update wishlist.'),
     });
   }
 
@@ -229,27 +198,24 @@ export class ProductDashboard implements OnInit {
 
   // ---------- Cart Logic ----------
   addToCart(productId: number): void {
+    // Guests: send them to sign in and bring them back here (the server would answer 401 anyway).
+    if (!this.authService.isLoggedIn()) {
+      this.toastService.info('Please sign in to add items to your cart.');
+      this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+      return;
+    }
+
     const product = this.products().find(p => p.productId === productId);
     if (product?.variants && product.variants.length > 0) {
-      // Can't pick a size/color from the listing grid - send them to the
-      // product page instead of letting this fail with a backend error.
       this.toastService.info('This product has options - pick one on the product page.');
       this.router.navigate(['/products', productId]);
       return;
     }
 
     this.cartService.addItemToCart(productId, 1).subscribe({
-      next: (res) => {
-        this.toastService.success('Item added to your cart!');
-        console.log('Item added:', res);
-      },
+      next: () => this.toastService.success('Item added to your cart!'),
       error: (err) => {
-        console.error("Add to cart failed", err);
-        if (err.status === 401) {
-          this.toastService.error('Please login first to add items to the cart.');
-        } else {
-          this.toastService.error(err.error?.message || 'Could not add item to cart.');
-        }
+        this.toastService.error(err.error?.message || 'Could not add item to cart.');
       }
     });
   }
@@ -262,16 +228,16 @@ export class ProductDashboard implements OnInit {
       return;
     }
 
-    // Pass product details directly to checkout via route state or query params
+    // Guests are sent to login by the route guard and come back to checkout afterwards.
     this.router.navigate(['/checkout'], {
-      queryParams: {
-        buyNow: productId,
-        quantity: 1
-      }
+      queryParams: { buyNow: productId, quantity: 1 }
     });
   }
+
   // ---------- Paging & Helpers ----------
   clearFilters(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchInput.set('');
     this.searchKeyword.set('');
     this.selectedCategory.set(null);
     this.selectedSort.set('price,asc');
@@ -280,6 +246,11 @@ export class ProductDashboard implements OnInit {
 
   onSortChange(sortValue: string): void {
     this.selectedSort.set(sortValue);
+    this.currentPage.set(0);
+  }
+
+  selectCategory(categoryId: number | null): void {
+    this.selectedCategory.set(categoryId);
     this.currentPage.set(0);
   }
 
@@ -298,50 +269,20 @@ export class ProductDashboard implements OnInit {
   goToPage(pageIndex: number): void {
     this.currentPage.set(pageIndex);
   }
-  // ---------- Type-Safe Event Handlers ----------
 
-  onCategoryChange(event: Event): void {  // ← NEW METHOD
-    const target = event.target as HTMLSelectElement;
-    const value = target.value ? +target.value : null;
-    this.selectedCategory.set(value);
-    this.currentPage.set(0);
-  }
-  trackByIndex(index: number): number {
-    return index;
-  }
   private syncFiltersToUrl(): void {
-
-    this.router.navigate(
-      [],
-      {
-        relativeTo: this.route,
-
-        queryParams: {
-
-          search:
-            this.searchKeyword() || null,
-
-          category:
-            this.selectedCategory(),
-
-          sort:
-            this.selectedSort(),
-
-        },
-
-        queryParamsHandling: '',
-
-        replaceUrl: true
-      }
-    );
-
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        search: this.searchKeyword() || null,
+        category: this.selectedCategory(),
+        sort: this.selectedSort(),
+      },
+      replaceUrl: true,
+    });
   }
-  getCategoryCount(categoryId: number): number {
-
-    return this.products()
-      .filter(p => p.categoryId === categoryId)
-      .length;
-
-  }
-
+  // Removed (never used): recentlyViewed, selectedProduct, showQuickView, categoryCounts,
+  // getCategoryCount (it counted only the 12 products on the CURRENT page, so the sidebar numbers
+  // never matched the Categories page; the sidebar now uses the server's cat.productCount),
+  // onCategoryChange, trackByIndex.
 }

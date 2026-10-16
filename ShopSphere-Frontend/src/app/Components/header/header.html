@@ -1,49 +1,44 @@
 <header class="main-header">
     <div class="header-container">
         <!-- Brand -->
-        <a routerLink="/" class="brand-logo">
-            <!-- <div class="logo-icon">🛒</div> -->
+        <a routerLink="/" class="brand-logo" (click)="closeMobileMenu()">
             <div class="logo-icon">
                 <mat-icon>storefront</mat-icon>
             </div>
             <span class="brand-name">ShopSphere</span>
         </a>
 
-        <!-- Orders Button -->
+        <!-- Orders Button (customers only) -->
+        @if (isCustomer()) {
         <button class="orders-btn" (click)="goToOrders()">
-
-            <mat-icon class="orders-icon">
-                receipt_long
-            </mat-icon>
-
+            <mat-icon class="orders-icon">receipt_long</mat-icon>
             <span>My Orders</span>
-
         </button>
+        }
+
         <!-- Actions -->
         <div class="header-actions">
             <!-- Nav Links -->
             <nav class="nav-links">
-                <a routerLink="/products" routerLinkActive="active" class="nav-link">
-                    Products
-                </a>
-                <a routerLink="/categories" class="nav-link">Categories</a>
+                <a routerLink="/products" routerLinkActive="active" class="nav-link">Products</a>
+                <a routerLink="/categories" routerLinkActive="active" class="nav-link">Categories</a>
+                @if (isAdmin()) {
+                <a routerLink="/admindashboard" routerLinkActive="active" class="nav-link">Admin dashboard</a>
+                }
             </nav>
 
             <!-- Auth -->
             @if (isUserLoggedIn()) {
             <div class="user-profile">
                 <div class="avatar" [title]="auth.currentUser()?.userName">
-                    {{ userInitials() }}
+                    {{ auth.userInitials() }}
                 </div>
                 <div class="user-info">
-                    <div class="user-name">
-                        {{ auth.currentUser()?.userName }}
-                    </div>
-                    <div class="user-role">
-                        {{ auth.currentUser()?.role }}
-                    </div>
+                    <div class="user-name">{{ auth.currentUser()?.userName }}</div>
+                    <!-- was the raw role text "USER" -->
+                    <div class="user-role">{{ isAdmin() ? 'Administrator' : 'Customer' }}</div>
                 </div>
-                <button class="logout-btn" type="button" (click)="logout()">
+                <button class="logout-btn" type="button" (click)="logout()" aria-label="Log out" title="Log out">
                     <svg class="logout-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path
                             d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
@@ -57,32 +52,48 @@
             </div>
             }
 
-            <!-- Wishlist link -->
-            @if (isUserLoggedIn()) {
+            <!-- Wishlist link (customers only) -->
+            @if (isCustomer()) {
             <a routerLink="/wishlist" class="wishlist-nav-link" aria-label="My Wishlist">
-
-                <mat-icon>
-                    favorite
-                </mat-icon>
-
+                <mat-icon>favorite</mat-icon>
             </a>
             }
 
-            <!-- Cart button -->
-            <button class="cart-btn" type="button" (click)="goToCart()">
-
-                <!-- <div class="cart-icon">🛒</div> -->
+            <!-- Cart button (guests are sent to login by the route guard; hidden for admins) -->
+            @if (!isAdmin()) {
+            <button class="cart-btn" type="button" (click)="goToCart()" aria-label="Open cart">
                 <div class="cart-icon">
-
-                    <mat-icon>
-                        shopping_cart
-                    </mat-icon>
-
+                    <mat-icon>shopping_cart</mat-icon>
                 </div>
                 @if (cartCount() > 0) {
                 <span class="cart-badge">{{ cartCount() }}</span>
                 }
             </button>
+            }
+
+            <!-- Menu button for small screens: the nav links and My Orders are hidden by the CSS below
+                 1024px, and there was no other way to reach them. -->
+            <button class="menu-toggle" type="button" (click)="toggleMobileMenu()"
+                [attr.aria-expanded]="isMobileMenuOpen()" aria-label="Menu">
+                <mat-icon>{{ isMobileMenuOpen() ? 'close' : 'menu' }}</mat-icon>
+            </button>
         </div>
     </div>
+
+    @if (isMobileMenuOpen()) {
+    <nav class="mobile-menu">
+        <a routerLink="/products" routerLinkActive="active" (click)="closeMobileMenu()">Products</a>
+        <a routerLink="/categories" routerLinkActive="active" (click)="closeMobileMenu()">Categories</a>
+        @if (isCustomer()) {
+        <a routerLink="/my-orders" (click)="closeMobileMenu()">My Orders</a>
+        <a routerLink="/wishlist" (click)="closeMobileMenu()">Wishlist</a>
+        }
+        @if (isAdmin()) {
+        <a routerLink="/admindashboard" (click)="closeMobileMenu()">Admin dashboard</a>
+        }
+        @if (isUserLoggedIn()) {
+        <button type="button" (click)="logout()">Log out</button>
+        }
+    </nav>
+    }
 </header>

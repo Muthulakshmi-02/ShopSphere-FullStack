@@ -386,3 +386,72 @@
     height: 20px !important;
     color: #FF3D71;
 }
+
+/* Add to the END of header.css.
+   Also DELETE one of the two identical ".orders-icon { font-size: 20px !important; ... }" blocks
+   near the bottom (the second one adds the colour, so keep that one). */
+
+/* Menu button + dropdown for screens <= 1024px (where .nav-links and .orders-btn are hidden) */
+.menu-toggle {
+    display: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(255, 61, 113, 0.08);
+    border: 1.5px solid rgba(255, 61, 113, 0.2);
+    color: #FF3D71;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.menu-toggle mat-icon {
+    color: #FF3D71;
+}
+
+.mobile-menu {
+    display: none;
+}
+
+@media (max-width: 1024px) {
+    .menu-toggle {
+        display: flex;
+    }
+
+    .mobile-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 0.75rem 1rem 1rem;
+        border-top: 1px solid rgba(245, 245, 247, 0.08);
+    }
+
+    .mobile-menu a,
+    .mobile-menu button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        background: none;
+        border: none;
+        color: #B8BFD4;
+        font-family: inherit;
+        font-size: 1rem;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .mobile-menu a:hover,
+    .mobile-menu button:hover,
+    .mobile-menu a.active {
+        color: #F5F5F7;
+        background: rgba(255, 61, 113, 0.1);
+    }
+
+    .mobile-menu button {
+        color: #ef4444;
+    }
+}

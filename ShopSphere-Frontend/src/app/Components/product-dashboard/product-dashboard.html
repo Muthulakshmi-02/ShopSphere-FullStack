@@ -43,8 +43,10 @@
         <circle cx="11" cy="11" r="8"></circle>
         <path d="m21 21-4.35-4.35"></path>
       </svg>
-      <input type="text" [value]="searchKeyword()" (input)="onSearchInput($event)" placeholder="Search for greatness..."
-        class="search-input" />
+      <!-- Bound to searchInput (what is typed right now). It used to be bound to the applied
+           keyword, which could erase the last letters you typed once the delayed search ran. -->
+      <input type="text" [value]="searchInput()" (input)="onSearchInput($event)" placeholder="Search for greatness..."
+        aria-label="Search products" class="search-input" />
     </div>
 
     <div class="results-count glass-card">
@@ -54,8 +56,10 @@
     </div>
 
     <div class="sort-wrapper glass-card">
-      <select [value]="selectedSort()" (change)="onSortChangeSafe($event)" class="sort-select">
-        <option *ngFor="let opt of sortOptions" [value]="opt.value">
+      <!-- [selected] on each option: [value] on the <select> is applied BEFORE the options exist,
+           so a sort chosen via the URL (?sort=name,desc) showed the wrong label. -->
+      <select (change)="onSortChangeSafe($event)" class="sort-select" aria-label="Sort products">
+        <option *ngFor="let opt of sortOptions" [value]="opt.value" [selected]="opt.value === selectedSort()">
           {{ opt.label }}
         </option>
       </select>
@@ -72,23 +76,18 @@
       </div>
 
       <div class="filter-group">
-        <button class="filter-link active" (click)="selectedCategory.set(null); currentPage.set(0)">
+        <!-- "active" was hard-coded here, so All Collections stayed highlighted whatever you picked -->
+        <button class="filter-link" [class.active]="selectedCategory() === null" (click)="selectCategory(null)">
           <span>All Collections</span>
           <div class="filter-indicator"></div>
         </button>
         <button *ngFor="let cat of categories()" class="filter-link"
-          [class.active]="selectedCategory() === cat.categoryId"
-          (click)="selectedCategory.set(cat.categoryId); currentPage.set(0)">
-          <!-- <span>{{ cat.name }}</span> -->
+          [class.active]="selectedCategory() === cat.categoryId" (click)="selectCategory(cat.categoryId)">
           <div class="category-row">
-
             <span>{{ cat.name | titlecase }}</span>
-
-            <!-- <span class="category-count">
-              {{ getCategoryCount(cat.categoryId) }}
-            </span> -->
-            <span class="category-count" [class.zero]="getCategoryCount(cat.categoryId) === 0">
-              {{ getCategoryCount(cat.categoryId) }}
+            <!-- Real count from the server (same number the Categories page shows) -->
+            <span class="category-count" [class.zero]="(cat.productCount ?? 0) === 0">
+              {{ cat.productCount ?? 0 }}
             </span>
           </div>
           <div class="filter-indicator"></div>
@@ -119,7 +118,7 @@
       <div class="product-grid">
         <article class="product-card glass-card" *ngFor="let p of products(); trackBy: trackByProductId">
           <div class="image-container">
-            <img [src]="API_URL + '/images/' + p.imageUrl" [alt]="p.name" class="product-img" loading="lazy" />
+            <img [src]="productImageUrl(p.imageUrl)" [alt]="p.name" class="product-img" loading="lazy" />
 
             <span class="discount-badge" *ngIf="p.discountPercentage">
               -{{ p.discountPercentage }}%
@@ -150,10 +149,6 @@
               <span class="review-count" *ngIf="p.reviewCount">({{ p.reviewCount }})</span>
             </div>
 
-            <!-- Price is always visible now - it used to only appear on
-                 hover, hidden behind an overlay that also covered the
-                 product photo. Neither is good for a shopper trying to
-                 evaluate a product at a glance. -->
             <div class="static-price-row">
               <span class="static-price" *ngIf="!p.discountPercentage">
                 {{ p.price | currency:'INR':'symbol':'1.2-2' }}
@@ -196,36 +191,8 @@
           </div>
         </article>
       </div>
-      <section class="recently-viewed-section" *ngIf="recentlyViewed().length > 0">
 
-        <div class="section-header">
-
-          <h2>
-            Recently Viewed
-          </h2>
-
-        </div>
-
-        <div class="recently-grid">
-
-          <article class="recent-card" *ngFor="let p of recentlyViewed()">
-
-            <img [src]="API_URL + '/images/' + p.imageUrl" [alt]="p.name">
-
-            <h4>
-              {{ p.name }}
-            </h4>
-
-            <span>
-              {{ discountedPrice(p)
-              | currency:'INR' }}
-            </span>
-
-          </article>
-
-        </div>
-
-      </section>
+      <!-- The "Recently Viewed" section was removed: nothing ever filled it, so it never appeared. -->
 
       <!-- Modern Pagination -->
       @if (totalPages() > 1) {
@@ -252,8 +219,18 @@
       }
       }
 
-      <!-- Empty State -->
-      @else {
+      <!-- Server problem: this used to look exactly like "no products found" -->
+      @else if (loadError()) {
+      <div class="empty-state glass-card">
+        <div class="empty-icon">⚠️</div>
+        <h3>We couldn't load the products</h3>
+        <p>Something went wrong on our side. Please try again in a moment.</p>
+        <button class="btn-primary" (click)="loadProducts()">Try again</button>
+      </div>
+      }
+
+      <!-- Genuinely nothing matched (not shown while the first load is still running) -->
+      @else if (!loading()) {
       <div class="empty-state glass-card">
         <div class="empty-icon">📦</div>
         <h3>We couldn't find any products</h3>

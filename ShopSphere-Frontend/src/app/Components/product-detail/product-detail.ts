@@ -422,7 +422,7 @@ export class ProductDetail implements OnInit {
 
     this.loadReviews(productId);
 
-    if (this.authService.isLoggedIn()) {
+    if (this.authService.isLoggedIn() && !this.authService.isAdmin()) {
       this.reviewService.checkEligibility(productId).subscribe({
         next: (res) => this.eligibility.set(res.data ?? null),
         error: (err) => console.error('Failed to check review eligibility', err),

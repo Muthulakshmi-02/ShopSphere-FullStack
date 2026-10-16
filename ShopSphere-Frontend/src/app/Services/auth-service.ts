@@ -34,21 +34,20 @@ export class AuthService {
   constructor() {
     // Restore the session when the app loads.
     if (isPlatformBrowser(this.platformId)) {
-      const token = sessionStorage.getItem('token') ?? localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
+      const savedUser = sessionStorage.getItem('user');
 
-      // NEW: a token older than its 24h lifetime used to leave the UI looking "logged in" while
-      // every request failed. Drop it up front instead.
-      if (token && this.isTokenExpired(token)) {
+      // A saved user without a valid token (missing or expired) must not look "logged in".
+      // Cleared only when a saved user exists, so a first-time visitor's storage isn't touched.
+      if (savedUser && (!token || this.isTokenExpired(token))) {
         this.clearStorage();
         return;
       }
 
-      const savedUser = sessionStorage.getItem('user');
       if (savedUser) {
         try {
           this.currentUser.set(JSON.parse(savedUser));
         } catch {
-          // Was logout(): that navigates AND reloads the page. Just clear the bad data.
           this.clearStorage();
         }
       }
@@ -67,9 +66,6 @@ export class AuthService {
           if (isPlatformBrowser(this.platformId)) {
             sessionStorage.setItem('token', userData.token);
             sessionStorage.setItem('user', JSON.stringify(userData));
-            // Kept for the existing guards / interceptor until they are consolidated.
-            localStorage.setItem('token', userData.token);
-            localStorage.setItem('role', role);
           }
 
           this.currentUser.set(userData);

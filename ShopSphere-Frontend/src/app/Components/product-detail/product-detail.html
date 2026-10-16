@@ -123,7 +123,8 @@
 
         <p class="review-gate-note" *ngIf="eligibility() as e">
           <ng-container *ngIf="e.alreadyReviewed">You've already reviewed this product - thanks!</ng-container>
-          <ng-container *ngIf="!e.hasPurchased && !e.alreadyReviewed">Only customers who've purchased this product can
+          <ng-container *ngIf="!e.hasPurchased && !e.alreadyReviewed">You can write a review once an order containing
+            this product has been delivered.
             leave a review.</ng-container>
         </p>
 

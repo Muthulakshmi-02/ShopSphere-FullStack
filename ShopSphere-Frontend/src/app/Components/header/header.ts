@@ -4,10 +4,11 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../Services/auth-service';
 import { CartService } from '../../Services/cart-service';
 import { MatIconModule } from '@angular/material/icon';
+
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive,MatIconModule],
+  imports: [CommonModule, RouterLink, RouterLinkActive, MatIconModule],
   templateUrl: './header.html',
   styleUrls: ['./header.css'],
 })
@@ -43,14 +44,25 @@ export class Header {
 
   isUserLoggedIn = computed(() => !!this.auth.currentUser());
 
+  // Added missing role signals (adjust 'role' if your backend uses a different property name like 'userType')
+  isAdmin = computed(() => {
+    const user = this.auth.currentUser();
+    return user?.role === 'Admin' || user?.role === 'Administrator';
+  });
+
+  isCustomer = computed(() => {
+    const user = this.auth.currentUser();
+    return user?.role === 'Customer' || !this.isAdmin(); // Fallback depending on your auth rules
+  });
+
   // Navigation methods
   goToOrders() {
     this.router.navigate(['/my-orders']);
     this.closeMobileMenu();
   }
+
   goToCart() {
     this.router.navigate(['/cart']);
-    // Optionally close mobile menu if open
     this.closeMobileMenu();
   }
 
