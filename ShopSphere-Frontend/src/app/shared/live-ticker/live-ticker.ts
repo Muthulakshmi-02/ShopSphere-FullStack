@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { OrderService } from '../../Services/order-service';
 
 interface TickerSale {
@@ -8,20 +8,24 @@ interface TickerSale {
 }
 
 /**
- * Signature "real-time" element for the storefront - a scrolling feed of
- * ACTUAL recent purchases, pulled from real orders via the public
- * GET /api/orders/recent-activity endpoint. No illustrative/fake data -
- * if there's no real purchase history yet, the ticker simply doesn't
- * render rather than showing made-up activity.
+ * Scrolling feed of ACTUAL recent purchases from the public GET /api/orders/recent-activity.
+ * No made-up data: with no purchase history (or if the request fails) the ticker is hidden.
+ * Refreshes every minute; it used to load once and then never change.
  */
 @Component({
   selector: 'app-live-ticker',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="ticker-bar" *ngIf="loopedSales().length > 0">
+    <div class="ticker-bar" *ngIf="sales().length > 0" aria-label="Recent purchases">
       <div class="ticker-track">
-        <span class="ticker-item" *ngFor="let s of loopedSales()">
+        <span class="ticker-item" *ngFor="let s of sales()">
+          <span class="zn-live-dot"></span>
+          <b>{{ s.name }}</b> just bought <b>{{ s.item }}</b>
+        </span>
+        <!-- Second copy so the scroll loops seamlessly; hidden from screen readers so every
+             purchase is not announced twice. -->
+        <span class="ticker-item" aria-hidden="true" *ngFor="let s of sales()">
           <span class="zn-live-dot"></span>
           <b>{{ s.name }}</b> just bought <b>{{ s.item }}</b>
         </span>
@@ -43,6 +47,9 @@ interface TickerSale {
       align-items: center;
       animation: ticker-scroll 32s linear infinite;
     }
+    .ticker-bar:hover .ticker-track {
+      animation-play-state: paused;
+    }
     .ticker-item {
       display: inline-flex;
       align-items: center;
@@ -61,31 +68,48 @@ interface TickerSale {
       0% { transform: translateX(0); }
       100% { transform: translateX(-50%); }
     }
+    /* People who ask their device for less motion get a still ticker. */
+    @media (prefers-reduced-motion: reduce) {
+      .ticker-track { animation: none; }
+    }
   `]
 })
-export class LiveTicker implements OnInit {
+export class LiveTicker implements OnInit, OnDestroy {
   private orderService = inject(OrderService);
+  private platformId = inject(PLATFORM_ID);
 
-  private sales = signal<TickerSale[]>([]);
+  sales = signal<TickerSale[]>([]);
 
-  // Duplicated once so the CSS scroll animation loops seamlessly - this is
-  // just a visual trick for the marquee effect, not the dedup the buyer
-  // requested (that dedup already happened server-side, by buyer+product).
-  loopedSales = signal<TickerSale[]>([]);
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private lastKey = '';
 
   ngOnInit(): void {
+    this.load();
+    if (isPlatformBrowser(this.platformId)) {
+      this.timer = setInterval(() => this.load(), 60_000);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  private load(): void {
     this.orderService.getRecentActivity().subscribe({
       next: (res) => {
         const activity = (res?.data || []) as { buyerName: string; productName: string }[];
         const sales: TickerSale[] = activity.map(a => ({ name: a.buyerName, item: a.productName }));
-        this.sales.set(sales);
-        this.loopedSales.set(sales.length > 0 ? [...sales, ...sales] : []);
+
+        // Only touch the screen when something actually changed (no flicker every minute).
+        const key = JSON.stringify(sales);
+        if (key !== this.lastKey) {
+          this.lastKey = key;
+          this.sales.set(sales);
+        }
       },
-      error: (err) => {
-        console.error('Failed to load recent activity for live ticker', err);
-        // No fallback to fake data - if the real feed fails, the ticker
-        // just doesn't show, rather than displaying made-up purchases.
-        this.loopedSales.set([]);
+      error: () => {
+        // No fallback to fake data: if the real feed fails the ticker just stays as it is / hidden.
+        if (this.sales().length === 0) this.sales.set([]);
       }
     });
   }

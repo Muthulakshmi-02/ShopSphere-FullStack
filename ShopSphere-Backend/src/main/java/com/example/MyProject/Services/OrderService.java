@@ -638,7 +638,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.Map;
 import java.util.Set;
- 
+
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -655,16 +655,14 @@ public class OrderService {
     private final PricingService pricing;
     private final PromoService promoService;
     private final ApplicationEventPublisher events;
-   
+
     // constant to add inside the class
- private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
-        OrderStatus.PENDING,   Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
-        OrderStatus.CONFIRMED, Set.of(OrderStatus.SHIPPED,   OrderStatus.CANCELLED),
-        OrderStatus.SHIPPED,   Set.of(OrderStatus.DELIVERED),
-        OrderStatus.DELIVERED, Set.of(),
-        OrderStatus.CANCELLED, Set.of()
-);
- 
+    private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
+            OrderStatus.PENDING, Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
+            OrderStatus.CONFIRMED, Set.of(OrderStatus.SHIPPED, OrderStatus.CANCELLED),
+            OrderStatus.SHIPPED, Set.of(OrderStatus.DELIVERED),
+            OrderStatus.DELIVERED, Set.of(),
+            OrderStatus.CANCELLED, Set.of());
 
     @Transactional
     public OrderResponse checkout(OrderRequest request) {
@@ -674,7 +672,8 @@ public class OrderService {
         Order order = new Order();
         order.setUser(user);
         order.setOrderDate(LocalDateTime.now());
-        // COD is confirmed straight away; card orders stay PENDING until payment is verified.
+        // COD is confirmed straight away; card orders stay PENDING until payment is
+        // verified.
         order.setOrderStatus(cod ? OrderStatus.CONFIRMED : OrderStatus.PENDING);
         order.setCreatedAt(LocalDateTime.now());
         order.setPhoneNumber(request.getPhoneNumber());
@@ -706,7 +705,8 @@ public class OrderService {
             List<CartItem> sortedItems = cart.getItems().stream()
                     .sorted((a, b) -> {
                         int byProduct = Long.compare(a.getProduct().getProductId(), b.getProduct().getProductId());
-                        if (byProduct != 0) return byProduct;
+                        if (byProduct != 0)
+                            return byProduct;
                         Long va = a.getVariant() != null ? a.getVariant().getVariantId() : -1L;
                         Long vb = b.getVariant() != null ? b.getVariant().getVariantId() : -1L;
                         return Long.compare(va, vb);
@@ -719,7 +719,8 @@ public class OrderService {
             }
         }
 
-        // Prices always come from PricingService, never from the client or a stale cart row.
+        // Prices always come from PricingService, never from the client or a stale cart
+        // row.
         double subtotal = 0.0;
         for (OrderItem item : orderItems) {
             subtotal += item.getPrice() * item.getQuantity();
@@ -762,7 +763,8 @@ public class OrderService {
 
         if (variantId != null) {
             ProductVariant variant = productVariantRepository.findByIdForUpdate(variantId)
-                    .orElseThrow(() -> new ResourceNotFoundException(getMessage("order.product.outOfStock", "Product Variant")));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            getMessage("order.product.outOfStock", "Product Variant")));
 
             Product product = variant.getProduct();
             if (!product.getProductId().equals(productId)) {
@@ -790,7 +792,8 @@ public class OrderService {
             productRepository.save(parent);
         } else {
             Product product = productRepository.findByIdForUpdate(productId)
-                    .orElseThrow(() -> new ResourceNotFoundException(getMessage("order.product.outOfStock", "Product")));
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException(getMessage("order.product.outOfStock", "Product")));
 
             if (!product.getVariants().isEmpty()) {
                 throw new CartBusinessException("Please select a size/color option for this product.");
@@ -820,52 +823,53 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getAllOrdersForAdmin() {
-      return orderRepository.findAllWithItems()
+        return orderRepository.findAllWithItems()
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-@Transactional
-public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
-    Order order = orderRepository.findById(orderId)
-            .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
- 
-    OrderStatus current = order.getOrderStatus();
-    if (current == newStatus) {
-        return mapToResponse(order);   // nothing to do, no duplicate email
-    }
- 
-    if (!ALLOWED_TRANSITIONS.getOrDefault(current, Set.of()).contains(newStatus)) {
-        throw new CartBusinessException(
-                "An order that is " + current + " cannot be changed to " + newStatus + ".");
-    }
- 
-    boolean cod = "COD".equalsIgnoreCase(order.getPaymentMethod());
-    boolean paid = order.getPaymentStatus() == PaymentStatus.PAID;
-    boolean needsPayment = newStatus == OrderStatus.CONFIRMED
-            || newStatus == OrderStatus.SHIPPED
-            || newStatus == OrderStatus.DELIVERED;
-    if (needsPayment && !cod && !paid) {
-        throw new CartBusinessException(
-                "This card order has not been paid yet, so it cannot be moved to " + newStatus + ".");
-    }
- 
-    if (newStatus == OrderStatus.CANCELLED) {
-        cancelInternal(order);
-    } else {
-        order.setOrderStatus(newStatus);
-        if (newStatus == OrderStatus.DELIVERED && cod) {
-            order.setPaymentStatus(PaymentStatus.PAID);   // cash collected on delivery
+    @Transactional
+    public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        OrderStatus current = order.getOrderStatus();
+        if (current == newStatus) {
+            return mapToResponse(order); // nothing to do, no duplicate email
         }
+
+        if (!ALLOWED_TRANSITIONS.getOrDefault(current, Set.of()).contains(newStatus)) {
+            throw new CartBusinessException(
+                    "An order that is " + current + " cannot be changed to " + newStatus + ".");
+        }
+
+        boolean cod = "COD".equalsIgnoreCase(order.getPaymentMethod());
+        boolean paid = order.getPaymentStatus() == PaymentStatus.PAID;
+        boolean needsPayment = newStatus == OrderStatus.CONFIRMED
+                || newStatus == OrderStatus.SHIPPED
+                || newStatus == OrderStatus.DELIVERED;
+        if (needsPayment && !cod && !paid) {
+            throw new CartBusinessException(
+                    "This card order has not been paid yet, so it cannot be moved to " + newStatus + ".");
+        }
+
+        if (newStatus == OrderStatus.CANCELLED) {
+            cancelInternal(order);
+        } else {
+            order.setOrderStatus(newStatus);
+            if (newStatus == OrderStatus.DELIVERED && cod) {
+                order.setPaymentStatus(PaymentStatus.PAID); // cash collected on delivery
+            }
+        }
+
+        Order saved = orderRepository.save(order);
+        events.publishEvent(new OrderEmailEvent(saved.getOrderId(),
+                newStatus == OrderStatus.CANCELLED ? OrderEmailEvent.Type.CANCELLED
+                        : OrderEmailEvent.Type.STATUS_UPDATE));
+        return mapToResponse(saved);
     }
- 
-    Order saved = orderRepository.save(order);
-    events.publishEvent(new OrderEmailEvent(saved.getOrderId(),
-            newStatus == OrderStatus.CANCELLED ? OrderEmailEvent.Type.CANCELLED
-                                               : OrderEmailEvent.Type.STATUS_UPDATE));
-    return mapToResponse(saved);
-}
+
     @Transactional
     public OrderResponse cancelMyOrder(Long orderId) {
         User user = getAuthenticatedUser();
@@ -890,11 +894,12 @@ public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
 
     /**
      * Shared cancel logic: restock, mark cancelled, and handle money/coupon.
-     *  - PAID    -> REFUND_PENDING (you still need to issue the Razorpay refund)
-     *  - unpaid  -> release the promo code so the customer can use it again
+     * - PAID -> REFUND_PENDING (you still need to issue the Razorpay refund)
+     * - unpaid -> release the promo code so the customer can use it again
      */
     private void cancelInternal(Order order) {
-        if (order.getOrderStatus() == OrderStatus.CANCELLED) return;
+        if (order.getOrderStatus() == OrderStatus.CANCELLED)
+            return;
 
         restoreStock(order);
         order.setOrderStatus(OrderStatus.CANCELLED);
@@ -929,7 +934,8 @@ public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
             sb.append("Size: ").append(variant.getSize());
         }
         if (variant.getColor() != null && !variant.getColor().isBlank()) {
-            if (sb.length() > 0) sb.append(", ");
+            if (sb.length() > 0)
+                sb.append(", ");
             sb.append("Color: ").append(variant.getColor());
         }
         return sb.toString();
@@ -945,14 +951,16 @@ public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
         order.getOrderItems().stream()
                 .sorted((a, b) -> {
                     int byProduct = Long.compare(a.getProduct().getProductId(), b.getProduct().getProductId());
-                    if (byProduct != 0) return byProduct;
+                    if (byProduct != 0)
+                        return byProduct;
                     Long va = a.getVariant() != null ? a.getVariant().getVariantId() : -1L;
                     Long vb = b.getVariant() != null ? b.getVariant().getVariantId() : -1L;
                     return Long.compare(va, vb);
                 })
                 .forEach(item -> {
                     if (item.getVariant() != null) {
-                        ProductVariant variant = productVariantRepository.findByIdForUpdate(item.getVariant().getVariantId())
+                        ProductVariant variant = productVariantRepository
+                                .findByIdForUpdate(item.getVariant().getVariantId())
                                 .orElse(item.getVariant());
                         variant.setStock(variant.getStock() + item.getQuantity());
                         productVariantRepository.save(variant);
@@ -960,7 +968,8 @@ public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
                         Product parent = productRepository.findByIdForUpdate(item.getProduct().getProductId())
                                 .orElse(item.getProduct());
                         int totalVariantStock = parent.getVariants().stream()
-                                .mapToInt(v -> v.getVariantId().equals(variant.getVariantId()) ? variant.getStock() : v.getStock())
+                                .mapToInt(v -> v.getVariantId().equals(variant.getVariantId()) ? variant.getStock()
+                                        : v.getStock())
                                 .sum();
                         parent.setStock(totalVariantStock);
                         syncStockStatus(parent);
@@ -977,7 +986,8 @@ public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
 
     private User getAuthenticatedUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String email = (principal instanceof UserDetails) ? ((UserDetails) principal).getUsername() : principal.toString();
+        String email = (principal instanceof UserDetails) ? ((UserDetails) principal).getUsername()
+                : principal.toString();
         return userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
     }
 
@@ -1014,10 +1024,10 @@ public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
     @Transactional(readOnly = true)
     public List<RecentActivityResponse> getRecentActivity(int limit) {
         return orderRepository.findTop30ByOrderStatusInOrderByOrderDateDesc(
-                        List.of(OrderStatus.CONFIRMED, OrderStatus.SHIPPED, OrderStatus.DELIVERED)).stream()
+                List.of(OrderStatus.CONFIRMED, OrderStatus.SHIPPED, OrderStatus.DELIVERED)).stream()
                 .filter(order -> order.getUser() != null && !order.getOrderItems().isEmpty())
                 .map(order -> RecentActivityResponse.builder()
-                        .buyerName(firstNameOnly(order.getUser().getUserName()))
+                        .buyerName(anonymousBuyer(order))
                         .productName(order.getOrderItems().get(0).getProduct().getName())
                         .build())
                 .distinct()
@@ -1026,8 +1036,18 @@ public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
     }
 
     private String firstNameOnly(String fullName) {
-        if (fullName == null || fullName.isBlank()) return "Someone";
+        if (fullName == null || fullName.isBlank())
+            return "Someone";
         return fullName.trim().split("\\s+")[0];
+    }
+
+    private String anonymousBuyer(Order order) {
+        String city = order.getCity();
+        if (city == null || city.isBlank())
+            return "Someone";
+        String trimmed = city.trim();
+        String pretty = trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1).toLowerCase();
+        return "Someone in " + pretty;
     }
 
     private String getMessage(String code, Object... args) {

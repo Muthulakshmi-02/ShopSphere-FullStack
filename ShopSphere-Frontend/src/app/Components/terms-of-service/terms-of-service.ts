@@ -8,4 +8,4 @@ import { RouterLink } from '@angular/router';
   templateUrl: './terms-of-service.html',
   styleUrls: ['../../shared/legal-page/legal-page.css']
 })
-export class TermsOfService {}
+export class TermsOfService { }

@@ -23,12 +23,16 @@ export class ConfirmService {
 
   ask(request: ConfirmRequest): Promise<boolean> {
     return new Promise(resolve => {
+      // If a dialog is already open, answer it with "no" first. Before, the new dialog simply
+      // replaced it and the code that was awaiting the first answer waited forever.
+      this.active()?.resolve(false);
       this.active.set({ ...request, resolve });
     });
   }
 
   resolve(confirmed: boolean) {
-    this.active()?.resolve(confirmed);
-    this.active.set(null);
+    const current = this.active();
+    this.active.set(null);          // close first, so a double-click cannot answer twice
+    current?.resolve(confirmed);
   }
 }

@@ -8,7 +8,8 @@ import { RouterLink } from '@angular/router';
   template: `
     <footer class="site-footer">
       <div class="footer-inner">
-        <span class="footer-brand">© {{ year }} Your Store</span>
+        <!-- was the placeholder text "Your Store" -->
+        <span class="footer-brand">© {{ year }} ShopSphere</span>
         <nav class="footer-links">
           <a routerLink="/products">Shop</a>
           <a routerLink="/terms">Terms of Service</a>

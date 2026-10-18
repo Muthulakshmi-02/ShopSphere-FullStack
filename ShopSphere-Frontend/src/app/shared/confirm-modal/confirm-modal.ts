@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConfirmService } from './confirm-service';
 
@@ -8,7 +8,8 @@ import { ConfirmService } from './confirm-service';
   imports: [CommonModule],
   template: `
     <div class="confirm-backdrop" *ngIf="confirmService.active() as req" (click)="confirmService.resolve(false)">
-      <div class="confirm-card" [attr.data-danger]="req.danger" (click)="$event.stopPropagation()">
+      <div class="confirm-card" role="dialog" aria-modal="true" [attr.aria-label]="req.title"
+        [attr.data-danger]="req.danger" (click)="$event.stopPropagation()">
         <h3>{{ req.title }}</h3>
         <p>{{ req.message }}</p>
         <div class="confirm-actions">
@@ -26,28 +27,20 @@ import { ConfirmService } from './confirm-service';
     .confirm-backdrop {
       position: fixed;
       inset: 0;
-      // background: rgba(15, 23, 42, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 999999;
       padding: var(--zn-space-4, 16px);
       animation: fade-in 150ms ease;
-      inset:0;
-      background:
-    rgba(
-8
-0,
-9
-0,
-10
-0,
-11
-.65
-12
-);
+      /* This declaration was broken: line numbers from a code viewer (8, 0, 9, 0 ...) had been
+         pasted INSIDE rgba(...), so the browser ignored the whole rule and the page behind the
+         dialog was never dimmed. A "//" comment (not valid in CSS) was also in this block. */
+      background: rgba(0, 0, 0, 0.65);
     }
     .confirm-card {
+      position: relative;
+      z-index: 1000000;
       background: var(--zn-surface, #fff);
       border-radius: var(--zn-radius-lg, 16px);
       box-shadow: var(--zn-shadow-lg, 0 12px 32px rgba(15,23,42,0.12));
@@ -55,10 +48,6 @@ import { ConfirmService } from './confirm-service';
       max-width: 400px;
       width: 100%;
     }
-    .confirm-card{
-    position:relative;
-    z-index:1000000;
-}
     .confirm-card h3 {
       font-size: 1.15rem;
       margin-bottom: var(--zn-space-2, 8px);
@@ -105,4 +94,12 @@ import { ConfirmService } from './confirm-service';
 })
 export class ConfirmModal {
   confirmService = inject(ConfirmService);
+
+  // Escape = Cancel (the safe choice), as people expect from a dialog.
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.confirmService.active()) {
+      this.confirmService.resolve(false);
+    }
+  }
 }

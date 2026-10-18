@@ -7,12 +7,14 @@ import { ToastService } from './toast-service';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="toast-stack" role="status" aria-live="polite">
+    <div class="toast-stack" aria-live="polite">
+      <!-- Errors use role="alert" so screen readers announce them straight away. -->
       <div
         class="toast"
         *ngFor="let t of toastService.toasts()"
+        [attr.role]="t.type === 'error' ? 'alert' : 'status'"
         [attr.data-type]="t.type">
-        <span class="toast-icon">
+        <span class="toast-icon" aria-hidden="true">
           <ng-container [ngSwitch]="t.type">
             <span *ngSwitchCase="'success'">✓</span>
             <span *ngSwitchCase="'error'">✕</span>
@@ -70,6 +72,14 @@ import { ToastService } from './toast-service';
     @keyframes toast-in {
       from { opacity: 0; transform: translateX(16px); }
       to { opacity: 1; transform: translateX(0); }
+    }
+    /* On a phone the 360px-wide stack plus a 24px margin could run off the screen. */
+    @media (max-width: 480px) {
+      .toast-stack {
+        left: var(--zn-space-4, 16px);
+        right: var(--zn-space-4, 16px);
+        max-width: none;
+      }
     }
   `]
 })

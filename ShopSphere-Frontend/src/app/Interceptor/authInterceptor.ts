@@ -2,9 +2,7 @@ import { Injector, inject } from '@angular/core';
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../Services/auth-service';
-
-// Move to an environment file before deploying (the same value is used in several services).
-const API_ORIGIN = 'http://localhost:8080';
+import { API_BASE_URL } from '../shared/api.config';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const injector = inject(Injector);
@@ -15,7 +13,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // startsWith, not includes(): the old check matched "localhost:8080" ANYWHERE in the URL, so a
   // request to any other site with that text in its path or query string would have been sent
   // your login token.
-  const isApiCall = req.url.startsWith(API_ORIGIN + '/');
+  const isApiCall = req.url.startsWith(API_BASE_URL + '/');
 
   let request = req;
   if (token && isApiCall) {
