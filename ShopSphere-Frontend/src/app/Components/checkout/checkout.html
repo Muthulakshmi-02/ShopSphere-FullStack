@@ -20,8 +20,8 @@
         <label>Saved Addresses</label>
         <div class="saved-addresses">
           @for (addr of savedAddresses(); track addr.addressId) {
-          <div class="address-card" [class.selected]="selectedAddressId() === addr.addressId"
-            (click)="selectAddress(addr)">
+          <div class="address-card" role="button" tabindex="0" [class.selected]="selectedAddressId() === addr.addressId"
+            (click)="selectAddress(addr)" (keydown.enter)="selectAddress(addr)">
             <div class="address-card-header">
               <span class="address-label">{{ addr.label }}</span>
               @if (addr.isDefault) {
@@ -90,17 +90,26 @@
 
       <div class="form-group" style="margin-top: 2rem;">
         <label>Select Payment Method</label>
-        <div class="form-row">
-          <label class="address-card" [class.selected]="orderForm.paymentMethod === 'CREDIT_CARD'"
-            (click)="orderForm.paymentMethod = 'CREDIT_CARD'" style="display: block; text-align: center;">
+        <!-- Real keyboard support: these were <label>s with only a click handler, so the payment method
+             could not be chosen without a mouse. -->
+        <div class="form-row" role="radiogroup" aria-label="Payment method">
+          <div class="address-card" role="radio" tabindex="0"
+            [attr.aria-checked]="orderForm.paymentMethod === 'CREDIT_CARD'"
+            [class.selected]="orderForm.paymentMethod === 'CREDIT_CARD'"
+            (click)="orderForm.paymentMethod = 'CREDIT_CARD'" (keydown.enter)="orderForm.paymentMethod = 'CREDIT_CARD'"
+            (keydown.space)="orderForm.paymentMethod = 'CREDIT_CARD'; $event.preventDefault()"
+            style="display: block; text-align: center;">
             <strong>Credit / Debit Card</strong>
             <p class="address-lines" style="margin-top: 0.2rem;">Secure via Razorpay</p>
-          </label>
-          <label class="address-card" [class.selected]="orderForm.paymentMethod === 'COD'"
-            (click)="orderForm.paymentMethod = 'COD'" style="display: block; text-align: center;">
+          </div>
+          <div class="address-card" role="radio" tabindex="0" [attr.aria-checked]="orderForm.paymentMethod === 'COD'"
+            [class.selected]="orderForm.paymentMethod === 'COD'" (click)="orderForm.paymentMethod = 'COD'"
+            (keydown.enter)="orderForm.paymentMethod = 'COD'"
+            (keydown.space)="orderForm.paymentMethod = 'COD'; $event.preventDefault()"
+            style="display: block; text-align: center;">
             <strong>Cash on Delivery</strong>
             <p class="address-lines" style="margin-top: 0.2rem;">Pay when you receive</p>
-          </label>
+          </div>
         </div>
       </div>
 

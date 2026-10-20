@@ -6,18 +6,23 @@ import { HttpClient } from '@angular/common/http';
 import { ApiResponse } from '../Models/User.model';
 import { CartRequest } from '../Models/Cart.model';
 import { tap, Observable } from 'rxjs';
+import { API_BASE_URL } from '../shared/api.config';
 
 export interface PromoValidationResponse {
   valid: boolean;
   used: boolean;
   type?: 'percent' | 'flat';
   value?: number;
+  // NEW: set by the server when the code needs a minimum order value. The check itself happens
+  // at checkout; this lets the cart show "needs ₹500" if you want to.
+  minOrderAmount?: number;
   message?: string;
 }
+
 @Injectable({ providedIn: 'root' })
 export class CartService {
   private http = inject(HttpClient);
-  private readonly API_URL = 'http://localhost:8080/api/cart';
+  private readonly API_URL = `${API_BASE_URL}/api/cart`;
 
   // State Signals
   cartData = signal<CartRequest | null>(null);
@@ -28,9 +33,7 @@ export class CartService {
     this.cartData()?.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0
   );
 
-  /**
-   * Load current user's cart from DB
-   */
+  /** Load current user's cart from DB */
   loadCart(): Observable<ApiResponse<CartRequest>> {
     return this.http.get<ApiResponse<CartRequest>>(this.API_URL).pipe(
       tap((res) => {
@@ -38,18 +41,17 @@ export class CartService {
       })
     );
   }
-  /**
-     * Validate Promo / Coupon Code
-     */
+
+  /** Validate Promo / Coupon Code */
   validatePromoCode(code: string): Observable<ApiResponse<PromoValidationResponse>> {
     return this.http.get<ApiResponse<PromoValidationResponse>>(
       `${this.API_URL}/validate-promo?code=${encodeURIComponent(code)}`
     );
   }
+
   /**
-   * Add Item: Used by Buy Now and Add to Cart
-   * variantId is optional - omit it entirely for simple (non-variant)
-   * products, exactly as this call worked before variants existed.
+   * Add Item: Used by Buy Now and Add to Cart.
+   * variantId is optional - omit it entirely for simple (non-variant) products.
    */
   addItemToCart(productId: number, quantity: number = 1, variantId?: number | null): Observable<ApiResponse<CartRequest>> {
     const params = variantId ? `?variantId=${variantId}` : '';
@@ -62,9 +64,7 @@ export class CartService {
     );
   }
 
-  /**
-   * Update Quantity: Used for + / - buttons in Cart UI
-   */
+  /** Update Quantity: Used for + / - buttons in Cart UI */
   updateQuantity(productId: number, quantity: number, variantId?: number | null): Observable<ApiResponse<CartRequest>> {
     const params = variantId ? `?variantId=${variantId}` : '';
     return this.http.put<ApiResponse<CartRequest>>(
@@ -76,9 +76,7 @@ export class CartService {
     );
   }
 
-  /**
-   * Remove Single Item
-   */
+  /** Remove Single Item */
   removeItem(productId: number, variantId?: number | null): Observable<ApiResponse<CartRequest>> {
     const params = variantId ? `?variantId=${variantId}` : '';
     return this.http.delete<ApiResponse<CartRequest>>(
@@ -90,9 +88,7 @@ export class CartService {
     );
   }
 
-  /**
-   * Clear Cart Manually
-   */
+  /** Clear Cart Manually */
   clearCart(): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API_URL}/clear`).pipe(
       tap((res) => {
@@ -101,9 +97,8 @@ export class CartService {
     );
   }
 
-  /**
-   * UI Helper: Toggle Sidebar
-   */
+  // isCartOpen / toggleCart drive a cart sidebar that no longer exists in the header. If a search
+  // for "isCartOpen" finds no other users, both can be deleted.
   toggleCart() {
     this.isCartOpen.update((v) => !v);
   }

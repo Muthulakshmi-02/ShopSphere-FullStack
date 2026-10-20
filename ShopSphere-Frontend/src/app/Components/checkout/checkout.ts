@@ -300,7 +300,6 @@
 //     this.paymentError.set(null);
 //   }
 // }
-
 import { Component, inject, signal, OnInit, computed } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -320,8 +319,7 @@ type CheckoutStep = 'shipping' | 'payment';
 /**
  * If the amount the backend stored on the order differs from what this page
  * showed the customer, refuse to open Razorpay. This is a safety net: it stops
- * customers being charged a price they never saw (e.g. MRP instead of the
- * discounted price). The real fix for such a mismatch belongs in the backend.
+ * customers being charged a price they never saw.
  */
 const BLOCK_ON_PRICE_MISMATCH = true;
 const PRICE_TOLERANCE = 1; // rupees
@@ -477,28 +475,34 @@ export class CheckoutPage implements OnInit {
     this.orderForm.promoCode = '';
   }
 
-  private loadBuyNowProduct(productId: number, variantId: number | null): void {
+  // onLoaded runs after the summary has been updated (or the request failed).
+  private loadBuyNowProduct(productId: number, variantId: number | null, onLoaded?: () => void): void {
     this.productService.getProductById(productId).subscribe({
       next: (res) => {
-        if (!(res.success && res.data)) return;
-        const product = res.data;
-        const variant = variantId != null
-          ? product.variants?.find(v => v.variantId === variantId)
-          : undefined;
+        if (res.success && res.data) {
+          const product = res.data;
+          const variant = variantId != null
+            ? product.variants?.find(v => v.variantId === variantId)
+            : undefined;
 
-        const basePrice = variant?.priceOverride ?? product.price;
-        const unitPrice = product.discountPercentage
-          ? basePrice * (1 - product.discountPercentage / 100)
-          : basePrice;
+          const basePrice = variant?.priceOverride ?? product.price;
+          const unitPrice = product.discountPercentage
+            ? basePrice * (1 - product.discountPercentage / 100)
+            : basePrice;
 
-        this.buyNowSummaryItem.set({
-          name: product.name,
-          quantity: this.orderForm.quantity ?? 1,
-          price: unitPrice,
-          variantLabel: variant ? `${variant.size || ''} ${variant.color || ''}`.trim() : null
-        });
+          this.buyNowSummaryItem.set({
+            name: product.name,
+            quantity: this.orderForm.quantity ?? 1,
+            price: unitPrice,
+            variantLabel: variant ? `${variant.size || ''} ${variant.color || ''}`.trim() : null
+          });
+        }
+        onLoaded?.();
       },
-      error: () => this.toastService.error('Could not load the product for Buy Now.')
+      error: () => {
+        this.toastService.error('Could not load the product for Buy Now.');
+        onLoaded?.();
+      }
     });
   }
 
@@ -579,6 +583,42 @@ export class CheckoutPage implements OnInit {
     this.isProcessing.set(true);
     this.paymentError.set(null);
 
+    // NEW: confirm the prices are still what the customer is looking at BEFORE any order is
+    // created. The page used the prices loaded earlier; if a price or discount changed in the
+    // meantime the server would charge the new price (correctly) but the customer had never seen
+    // it, and Cash on Delivery orders had no payment step to catch that.
+    this.verifyPricesThenContinue();
+  }
+
+  private verifyPricesThenContinue(): void {
+    const totalBefore = this.cartFinalTotal();
+
+    const afterRefresh = () => {
+      if (Math.abs(this.cartFinalTotal() - totalBefore) > 0.009) {
+        // The summary on the right already shows the new numbers.
+        this.isProcessing.set(false);
+        this.toastService.info(
+          'Prices were updated while you were checking out. Please review the new total, then continue.'
+        );
+        return;
+      }
+      this.createOrder();
+    };
+
+    if (this.orderForm.productId) {
+      this.loadBuyNowProduct(this.orderForm.productId, this.orderForm.variantId ?? null, afterRefresh);
+    } else {
+      this.cartService.loadCart().subscribe({
+        next: () => afterRefresh(),
+        error: () => {
+          this.isProcessing.set(false);
+          this.toastService.error('Could not verify your cart. Please try again.');
+        }
+      });
+    }
+  }
+
+  private createOrder(): void {
     if (this.showNewAddressForm() && this.saveNewAddress && this.newAddressLabel.trim()) {
       const addressToSave: AddressRequest = {
         label: this.newAddressLabel.trim(),
@@ -701,7 +741,10 @@ export class CheckoutPage implements OnInit {
     this.orderService.verifyPayment(request).subscribe({
       next: () => {
         this.isProcessing.set(false);
-        this.finishAndGoToSuccess({ ...order, paymentStatus: 'PAID' });
+        // A card order comes back from the server as PENDING until payment is verified, so the
+        // success page must be told it is now CONFIRMED as well as PAID. Before, it showed
+        // "Order Confirmed!" next to a status pill saying PENDING.
+        this.finishAndGoToSuccess({ ...order, paymentStatus: 'PAID', orderStatus: 'CONFIRMED' });
       },
       error: (err: any) => {
         this.isProcessing.set(false);

@@ -3,7 +3,13 @@
 
     <div *ngIf="loading()" class="skeleton-loader">Loading your orders...</div>
 
-    <div *ngIf="!loading() && orders().length === 0" class="empty-orders">
+    <!-- A server failure used to look exactly like "no orders yet" -->
+    <div *ngIf="!loading() && loadError()" class="empty-orders">
+        <p>We couldn't load your orders. Please try again.</p>
+        <button (click)="loadOrders()">Try again</button>
+    </div>
+
+    <div *ngIf="!loading() && !loadError() && orders().length === 0" class="empty-orders">
         <p>You haven't placed any orders yet.</p>
         <button routerLink="/products">Start Shopping</button>
     </div>
@@ -26,13 +32,17 @@
             </div>
 
             <div class="order-body">
-                <app-order-timeline [status]="order.orderStatus"></app-order-timeline>
+                <app-order-timeline [status]="order.orderStatus" [paymentStatus]="order.paymentStatus">
+                </app-order-timeline>
 
                 <div class="item-row" *ngFor="let item of order.items">
-                    <img [src]="productImageUrl(item.imageUrl)" alt="product" loading="lazy" decoding="async">
+                    <img [src]="productImageUrl(item.imageUrl)" [alt]="item.productName" loading="lazy"
+                        decoding="async">
                     <div class="item-info">
                         <p class="name">{{ item.productName }}</p>
-                        <p class="meta">Qty: {{ item.quantity }} | Price: {{ item.priceAtPurchase | currency }}</p>
+                        <p class="meta" *ngIf="item.variantLabel">{{ item.variantLabel }}</p>
+                        <p class="meta">Qty: {{ item.quantity }} | Price: {{ item.priceAtPurchase | currency:'INR' }}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -42,44 +52,42 @@
                     <strong>Shipping to:</strong> {{ order.shippingAddress }}
                 </div>
                 <div class="total-summary">
-                    <span>Total Paid:</span>
-                    <strong>{{ order.totalAmount | currency }}</strong>
+                    <!-- "Total Paid" was shown even for unpaid and Cash on Delivery orders -->
+                    <span>{{ order.paymentStatus === 'PAID' ? 'Total paid:' : 'Total:' }}</span>
+                    <strong>{{ order.totalAmount | currency:'INR' }}</strong>
+                    <div class="promo-line" *ngIf="order.promoCode && order.discountAmount">
+                        {{ order.promoCode }}: -{{ order.discountAmount | currency:'INR' }}
+                    </div>
                 </div>
-                <button
-                    class="cancel-order-btn"
-                    *ngIf="canCancel(order)"
-                    [disabled]="cancellingOrderId() === order.orderId"
-                    (click)="cancelOrder(order)"
-                >
-                    {{ cancellingOrderId() === order.orderId ? 'Cancelling…' : 'Cancel order' }}
-                </button>
+
+                <div class="order-actions" *ngIf="canPay(order) || canCancel(order)">
+                    <span class="pay-hint" *ngIf="canPay(order)">
+                        Payment pending. Complete it within 30 minutes or the order is cancelled automatically.
+                    </span>
+                    <button class="pay-now-btn" *ngIf="canPay(order)" [disabled]="payingOrderId() === order.orderId"
+                        (click)="payNow(order)">
+                        {{ payingOrderId() === order.orderId ? 'Opening payment…' : 'Pay now' }}
+                    </button>
+                    <button class="cancel-order-btn" *ngIf="canCancel(order)"
+                        [disabled]="cancellingOrderId() === order.orderId" (click)="cancelOrder(order)">
+                        {{ cancellingOrderId() === order.orderId ? 'Cancelling…' : 'Cancel order' }}
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="pagination" *ngIf="!loading() && totalPages() > 1">
-        <button
-            class="page-btn"
-            [disabled]="currentPage() === 1"
-            (click)="goToPage(currentPage() - 1)"
-        >
+        <button class="page-btn" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
             ← Prev
         </button>
 
-        <button
-            *ngFor="let p of pageNumbers()"
-            class="page-btn"
-            [class.active]="currentPage() === p"
-            (click)="goToPage(p)"
-        >
+        <button *ngFor="let p of pageNumbers()" class="page-btn" [class.active]="currentPage() === p"
+            (click)="goToPage(p)">
             {{ p }}
         </button>
 
-        <button
-            class="page-btn"
-            [disabled]="currentPage() === totalPages()"
-            (click)="goToPage(currentPage() + 1)"
-        >
+        <button class="page-btn" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">
             Next →
         </button>
     </div>

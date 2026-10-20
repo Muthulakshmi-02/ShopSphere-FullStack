@@ -1,8 +1,9 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { EMPTY, Observable, finalize, tap } from 'rxjs';
 import { ApiResponse } from '../Models/User.model';
 import { ProductResponse } from '../Models/Product.model';
+import { API_BASE_URL } from '../shared/api.config';
 
 export interface WishlistItemResponse {
   wishlistItemId: number;
@@ -13,12 +14,14 @@ export interface WishlistItemResponse {
 @Injectable({ providedIn: 'root' })
 export class WishlistService {
   private http = inject(HttpClient);
-  private readonly API_URL = 'http://localhost:8080/api/wishlist';
+  private readonly API_URL = `${API_BASE_URL}/api/wishlist`;
 
-  // Product IDs currently wishlisted, kept in sync so any component (product
-  // cards, header badge, etc.) can check membership instantly without an
-  // extra HTTP call per card.
+  // Product IDs currently wishlisted, kept in sync so any component (product cards, product page,
+  // etc.) can check membership instantly without an extra HTTP call per card.
   wishlistedIds = signal<Set<number>>(new Set());
+
+  // Products whose toggle request is still running.
+  private inFlight = new Set<number>();
 
   loadWishlistIds(): Observable<ApiResponse<number[]>> {
     return this.http.get<ApiResponse<number[]>>(`${this.API_URL}/product-ids`).pipe(
@@ -35,6 +38,13 @@ export class WishlistService {
   }
 
   toggle(productId: number): Observable<ApiResponse<boolean>> {
+    // A second click while the first request is still running does nothing. Two quick clicks used
+    // to send two requests; the second could hit a database conflict and show an error.
+    if (this.inFlight.has(productId)) {
+      return EMPTY;
+    }
+    this.inFlight.add(productId);
+
     return this.http.post<ApiResponse<boolean>>(`${this.API_URL}/${productId}/toggle`, {}).pipe(
       tap(res => {
         if (!res.success) return;
@@ -45,7 +55,8 @@ export class WishlistService {
           current.delete(productId);
         }
         this.wishlistedIds.set(current);
-      })
+      }),
+      finalize(() => this.inFlight.delete(productId))
     );
   }
 

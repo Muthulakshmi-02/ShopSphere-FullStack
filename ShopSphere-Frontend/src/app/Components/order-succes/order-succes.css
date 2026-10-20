@@ -131,3 +131,53 @@
     font-weight: 600;
     cursor: pointer;
 }
+
+/* Add to the END of order-succes.css. These replace the inline style="..." attributes that were on
+   the email card. */
+
+.email-dispatch-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    padding: 1rem 1.25rem;
+    border-radius: 16px;
+    margin: 1.5rem 0;
+}
+
+.email-icon {
+    font-size: 1.5rem;
+}
+
+.email-text {
+    text-align: left;
+}
+
+.email-text h4 {
+    margin: 0 0 0.2rem 0;
+    color: #10b981;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.email-text p {
+    margin: 0;
+    color: #8B92A8;
+    font-size: 0.85rem;
+}
+
+.promo-saving {
+    color: #2ECC71;
+    font-weight: 600;
+}
+
+/* Price on the right of each purchased item (it was jammed against the name) */
+.mini-info {
+    flex: 1;
+}
+
+.m-price {
+    margin-left: auto;
+    font-weight: 700;
+}

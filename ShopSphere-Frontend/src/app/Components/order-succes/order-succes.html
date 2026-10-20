@@ -59,13 +59,21 @@
     </div>
 
     <h1 class="thank-you">Order Confirmed!</h1>
-    <p class="subtitle">Thank you for your purchase. Your order is being processed.</p>
+    <p class="subtitle" *ngIf="isCod; else paidSubtitle">
+      Thank you for your order. Please keep {{ orderData?.totalAmount | currency:'INR':'symbol':'1.2-2' }} ready to
+      pay when it arrives.
+    </p>
+    <ng-template #paidSubtitle>
+      <p class="subtitle">Thank you for your purchase. Your payment was received and your order is being processed.</p>
+    </ng-template>
 
     <div class="order-id-badge">
       Order #{{ orderData?.orderId }}
     </div>
 
-    <app-order-timeline [status]="orderData?.orderStatus || 'PENDING'"></app-order-timeline>
+    <app-order-timeline [status]="orderData?.orderStatus || 'PENDING'"
+      [paymentStatus]="orderData?.paymentStatus ?? null">
+    </app-order-timeline>
 
     <div class="order-details">
       <h3>Summary</h3>
@@ -75,7 +83,13 @@
       </div>
       <div class="detail-row">
         <span>Payment</span>
-        <span>{{ orderData?.paymentStatus }}</span>
+        <!-- A Cash on Delivery order is "PENDING" in the database until it is delivered, which looked
+             like a problem here -->
+        <span>{{ isCod ? 'Cash on delivery' : orderData?.paymentStatus }}</span>
+      </div>
+      <div class="detail-row" *ngIf="orderData?.promoCode && orderData?.discountAmount">
+        <span>Promo ({{ orderData?.promoCode }})</span>
+        <span class="promo-saving">-{{ orderData?.discountAmount | currency:'INR':'symbol':'1.2-2' }}</span>
       </div>
       <div class="detail-row">
         <span>Total Amount</span>
@@ -90,23 +104,23 @@
     <div class="purchased-items">
       <h4>Items Purchased</h4>
       <div class="mini-item" *ngFor="let item of orderData?.items">
-        <img [src]="productImageUrl(item.imageUrl)" alt="product" loading="lazy" decoding="async">
+        <img [src]="productImageUrl(item.imageUrl)" [alt]="item.productName" loading="lazy" decoding="async">
         <div class="mini-info">
           <p class="m-name">{{ item.productName }}</p>
+          <p class="m-qty" *ngIf="item.variantLabel">{{ item.variantLabel }}</p>
           <p class="m-qty">Qty: {{ item.quantity }}</p>
         </div>
         <span class="m-price">{{ item.priceAtPurchase | currency:'INR':'symbol':'1.2-2' }}</span>
       </div>
     </div>
 
-    <!-- Email Dispatch Notification Badge -->
-    <div class="email-dispatch-card"
-      style="display: flex; align-items: center; gap: 1rem; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); padding: 1rem 1.25rem; border-radius: 16px; margin: 1.5rem 0;">
-      <div style="font-size: 1.5rem;">📧</div>
-      <div style="text-align: left;">
-        <h4 style="margin: 0 0 0.2rem 0; color: #10b981; font-size: 1rem; font-weight: 600;">Confirmation Email Sent
-        </h4>
-        <p style="margin: 0; color: #8B92A8; font-size: 0.85rem;">We've emailed your invoice and tracking details.</p>
+    <!-- This said "Confirmation Email Sent: we've emailed your invoice and tracking details", which
+         was never guaranteed (and no invoice is sent). It now only promises what the server does. -->
+    <div class="email-dispatch-card">
+      <div class="email-icon">📧</div>
+      <div class="email-text">
+        <h4>Order confirmation on its way</h4>
+        <p>We'll email your order details to your registered address.</p>
       </div>
     </div>
 

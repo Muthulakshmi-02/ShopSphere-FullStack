@@ -3,12 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse } from '../Models/User.model';
 import { CategoryRequest, CategoryResponse } from '../Models/Category.model';
+import { API_BASE_URL } from '../shared/api.config';
 
 @Injectable({ providedIn: 'root' })
 export class CategoryService {
   private http = inject(HttpClient);
-  // Ensure this matches your Spring Boot server exact address
-  private readonly API_URL = 'http://localhost:8080/api/categories';
+  private readonly API_URL = `${API_BASE_URL}/api/categories`;
 
   getAllCategories(): Observable<ApiResponse<CategoryResponse[]>> {
     return this.http.get<ApiResponse<CategoryResponse[]>>(this.API_URL);
