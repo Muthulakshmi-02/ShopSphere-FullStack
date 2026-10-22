@@ -383,3 +383,25 @@
         background-position: 0 50%;
     }
 }
+/* Add to the END of cart.css.
+   .back-link had no style, so "Continue Shopping" showed in the browser's default purple. */
+.back-link {
+    display: inline-block;
+    margin-top: 24px;
+    color: var(--primary-black);
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+}
+.back-link:hover { text-decoration: underline; }
+
+.variant-label {
+    font-size: 13px;
+    color: var(--zn-text-muted);
+    margin: 0 12px;
+}
+
+.status-free { color: #00E676; font-weight: 600; }
+
+.qty-btn:disabled,
+.remove-link:disabled { opacity: 0.45; cursor: not-allowed; }

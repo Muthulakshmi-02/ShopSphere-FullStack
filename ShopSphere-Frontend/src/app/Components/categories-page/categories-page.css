@@ -249,3 +249,29 @@
 .category-status {
     margin-top: 1rem;
 }
+
+/* Add to the END of categories-page.css */
+
+/* The hover gradient (::before) sat ABOVE the card content and caught the pointer, so the
+   "Explore Collection" button never got its own hover. It must not receive the mouse. */
+.category-card::before {
+    pointer-events: none;
+}
+
+.category-card:focus-visible {
+    outline: 2px solid #FF3D71;
+    outline-offset: 3px;
+}
+
+.categories-state {
+    text-align: center;
+    color: #8B92A8;
+    padding: 3rem 1rem;
+}
+
+.categories-state p {
+    margin-bottom: 1rem;
+}
+
+/* Cleanup: ".category-count" is defined twice and ".category-status" is unused; the second
+   ".category-count" block is the one that applies, so you can delete the first and the unused rule. */

@@ -1,55 +1,44 @@
 <div class="categories-page">
 
     <div class="page-header">
-
-        <span class="page-badge">
-            Browse Collections
-        </span>
-
-        <h1>
-            Discover By Category
-        </h1>
-
-        <p>
-            Explore curated collections and find products that match your interests.
-        </p>
-
+        <span class="page-badge">Browse Collections</span>
+        <h1>Discover By Category</h1>
+        <p>Explore curated collections and find products that match your interests.</p>
     </div>
 
-    <div class="categories-grid">
+    <div class="categories-state" *ngIf="loading()">Loading collections…</div>
 
-        <div class="category-card" *ngFor="let category of categories()" (click)="openCategory(category.categoryId)">
+    <!-- A server failure used to leave this page blank -->
+    <div class="categories-state" *ngIf="!loading() && loadError()">
+        <p>We couldn't load the collections. Please try again.</p>
+        <button class="explore-btn" (click)="load()">Try again</button>
+    </div>
+
+    <div class="categories-state" *ngIf="!loading() && !loadError() && categories().length === 0">
+        No collections yet. Please check back soon.
+    </div>
+
+    <div class="categories-grid" *ngIf="!loading() && !loadError()">
+
+        <!-- role="link" + tabindex + Enter: the card was a plain <div> with only a click handler, so it
+             could not be reached or opened with the keyboard. -->
+        <div class="category-card" *ngFor="let category of categories()" role="link" tabindex="0"
+            [attr.aria-label]="'Browse ' + category.name"
+            (click)="openCategory(category.categoryId)" (keydown.enter)="openCategory(category.categoryId)">
 
             <div class="card-top">
-
-                <div class="category-icon">
-                    {{ getCategoryIcon(category.name) }}
-                </div>
-
-                <span class="arrow">
-                    →
-                </span>
-
+                <div class="category-icon">{{ getCategoryIcon(category.name) }}</div>
+                <span class="arrow">→</span>
             </div>
 
-            <h3>
-                {{ category.name | titlecase }}
+            <h3>{{ category.name | titlecase }}</h3>
 
-            </h3>
-            <span class="category-count">
+            <!-- "12" on its own meant nothing; now "12 products" -->
+            <span class="category-count">{{ productCountLabel(category) }}</span>
 
-                {{ getProductCount(category.categoryId) }}
+            <p>{{ category.description || ('Browse our ' + (category.name | lowercase) + ' collection.') }}</p>
 
-            </span>
-
-            <p>
-                {{ category.description }}
-            </p>
-
-            <button class="explore-btn">
-                Explore Collection
-            </button>
-
+            <button class="explore-btn" tabindex="-1">Explore Collection</button>
         </div>
 
     </div>

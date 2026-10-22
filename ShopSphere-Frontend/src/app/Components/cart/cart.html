@@ -105,20 +105,32 @@
         <div class="skeleton-item" *ngFor="let i of [1,2,3]"></div>
     </div>
 
+    <!-- Server problem (this used to look like an empty bag) -->
+    <div class="empty-state" *ngIf="!initialLoading() && loadError()">
+        <div class="empty-icon">⚠️</div>
+        <h2>We couldn't load your cart</h2>
+        <p>Something went wrong. Please try again.</p>
+        <button class="checkout-btn" style="max-width: 200px; margin: 20px auto 0;"
+            (click)="loadCartData()">Try again</button>
+    </div>
+
     <!-- Main Cart Container -->
-    <div class="cart-container" *ngIf="!initialLoading() && cart() && itemCount() > 0; else emptyState">
+    <div class="cart-container" *ngIf="!initialLoading() && !loadError() && cart() && itemCount() > 0; else emptyState">
         <div class="cart-grid">
 
             <!-- Items Section -->
             <section class="items-section">
                 <div class="cart-header-row">
-                    <h2 class="cart-title">Your Selection <span class="count-pill">{{ itemCount() }}</span></h2>
+                    <h2 class="cart-title">Your Selection
+                        <span class="count-pill">({{ itemCount() }} {{ itemCount() === 1 ? 'item' : 'items' }})</span>
+                    </h2>
                     <button class="btn-clear-bag" (click)="clearCart()">Clear Bag</button>
                 </div>
 
                 <div class="item-card" *ngFor="let item of cart()?.items">
                     <div class="item-img-box">
-                        <img [src]="productImageUrl(item.imageUrl)" alt="product" loading="lazy" decoding="async">
+                        <img [src]="productImageUrl(item.imageUrl)" [alt]="item.productName" loading="lazy"
+                            decoding="async">
                     </div>
 
                     <div class="item-details">
@@ -133,12 +145,13 @@
                         <div class="item-actions">
                             <div class="qty-picker">
                                 <button (click)="updateQty(item.productId, item.quantity, -1, item.variantId)"
-                                    class="qty-btn">−</button>
+                                    class="qty-btn" [disabled]="loading()" aria-label="Decrease quantity">−</button>
                                 <span class="qty-val">{{ item.quantity }}</span>
                                 <button (click)="updateQty(item.productId, item.quantity, 1, item.variantId)"
-                                    class="qty-btn">+</button>
+                                    class="qty-btn" [disabled]="loading()" aria-label="Increase quantity">+</button>
                             </div>
-                            <button class="remove-link" (click)="remove(item.productId, item.variantId)">Remove</button>
+                            <button class="remove-link" [disabled]="loading()"
+                                (click)="remove(item.productId, item.variantId)">Remove</button>
                         </div>
                     </div>
                 </div>
@@ -157,20 +170,23 @@
                     </div>
 
                     <!-- Dynamic Discount Breakdown -->
-                    <div class="summary-row discount-row" *ngIf="isPromoApplied">
+                    <div class="summary-row discount-row" *ngIf="isPromoApplied && discountAmount > 0">
                         <span>Discount</span>
                         <span>-{{ discountAmount | currency:'INR':'symbol':'1.2-2' }}</span>
                     </div>
 
+                    <!-- Your backend never adds a shipping charge (the order total is items minus discount), so
+                         "Calculated at checkout" promised something that never appeared. If you add shipping
+                         fees later, change this back. -->
                     <div class="summary-row">
-                        <span>Estimated Shipping</span>
-                        <span class="status-free">Calculated at checkout</span>
+                        <span>Shipping</span>
+                        <span class="status-free">Free</span>
                     </div>
 
                     <!-- Styled Promo Input Group -->
                     <div class="promo-input-group">
-                        <input type="text" class="promo-input" placeholder="Promo Code" [(ngModel)]="promoCode"
-                            (keyup.enter)="applyPromo()">
+                        <input type="text" class="promo-input" placeholder="Promo Code" aria-label="Promo code"
+                            [(ngModel)]="promoCode" (keyup.enter)="applyPromo()">
                         <button class="btn-apply-promo" (click)="applyPromo()">Apply</button>
                     </div>
 
@@ -190,13 +206,16 @@
                         class="promo-feedback">
                         {{ promoMessage }}
                     </p>
+                    <p *ngIf="promoLocked" class="error-text promo-feedback">
+                        This code needs a minimum order of {{ promoMinOrder | currency:'INR':'symbol':'1.0-0' }}.
+                        Add {{ (promoMinOrder ?? 0) - subtotal | currency:'INR':'symbol':'1.2-2' }} more to use it.
+                    </p>
 
                     <div class="summary-row grand-total">
                         <span>Total</span>
                         <span class="total-amount">{{ finalGrandTotal | currency:'INR':'symbol':'1.2-2' }}</span>
                     </div>
 
-                    <!-- Bound to procedure handler that appends promo query params -->
                     <button class="checkout-btn" (click)="proceedToCheckout()">
                         Checkout Now
                     </button>
@@ -213,7 +232,7 @@
 
 <!-- Empty Cart State -->
 <ng-template #emptyState>
-    <div class="empty-state" *ngIf="!initialLoading()">
+    <div class="empty-state" *ngIf="!initialLoading() && !loadError()">
         <div class="empty-icon">🛍️</div>
         <h2>Your bag is empty</h2>
         <p>Looks like you haven't added anything to your cart yet.</p>

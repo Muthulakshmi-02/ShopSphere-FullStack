@@ -149,9 +149,9 @@ export class Cart implements OnInit {
 
   cart = this.cartService.cartData;
   itemCount = this.cartService.itemCount;
-  cartItems = signal<any[]>([]);
   loading = signal(false);
   initialLoading = signal(true);
+  loadError = signal(false);
 
   // --- Promo Code State ---
   promoCode: string = '';
@@ -159,20 +159,25 @@ export class Cart implements OnInit {
   isPromoApplied: boolean = false;
   discountRate: number = 0;
   flatDiscount: number = 0;
+  promoMinOrder: number | null = null;
+  // The code that was actually validated. proceedToCheckout used to pass whatever was currently
+  // typed in the box, even if it had never been applied (or was edited after applying).
+  private appliedCode: string | null = null;
 
   ngOnInit(): void {
     this.loadCartData();
   }
 
   loadCartData() {
+    this.loadError.set(false);
+    this.initialLoading.set(true);
     this.cartService.loadCart().subscribe({
-      next: (response) => {
-        console.log('Cart synchronized with server:', response);
-        this.initialLoading.set(false);
-      },
+      next: () => this.initialLoading.set(false),
       error: (err) => {
         console.error('Failed to load cart on init:', err);
         this.initialLoading.set(false);
+        // Used to show "Your bag is empty" when the server simply failed.
+        this.loadError.set(true);
         this.toastService.error('Could not load your cart. Please try again.');
       }
     });
@@ -183,11 +188,15 @@ export class Cart implements OnInit {
     return this.cart()?.totalAmount || 0;
   }
 
+  // A code with a minimum order value stops counting if the cart drops below it.
+  get promoLocked(): boolean {
+    return this.isPromoApplied && this.promoMinOrder != null && this.subtotal < this.promoMinOrder;
+  }
+
   get discountAmount(): number {
-    if (this.discountRate > 0) {
-      return this.subtotal * this.discountRate;
-    }
-    return this.flatDiscount;
+    if (!this.isPromoApplied || this.promoLocked) return 0;
+    const raw = this.discountRate > 0 ? this.subtotal * this.discountRate : this.flatDiscount;
+    return Math.min(raw, this.subtotal);   // a flat discount can never exceed the cart
   }
 
   get finalGrandTotal(): number {
@@ -201,8 +210,7 @@ export class Cart implements OnInit {
 
     if (!code) {
       this.promoMessage = 'Please enter a promo code.';
-      this.isPromoApplied = false;
-      this.resetDiscount();
+      this.clearPromo();
       return;
     }
 
@@ -212,30 +220,31 @@ export class Cart implements OnInit {
 
         if (data?.used) {
           this.promoMessage = data.message || 'You have already used this promo code on a previous order.';
-          this.isPromoApplied = false;
-          this.resetDiscount();
-        } else if (data?.valid) {
+          this.clearPromo();
+        } else if (data?.valid && data.value != null) {
           this.isPromoApplied = true;
+          this.appliedCode = code;
+          this.promoMinOrder = data.minOrderAmount ?? null;
 
-          if (data.type === 'percent' && data.value != null) {
-            this.discountRate = data.value;
+          if (data.type === 'percent') {
+            // 0.10 and 10 both mean 10%: the same rule the server applies. Before, a coupon stored
+            // as 10 made the discount 1000% of the cart.
+            this.discountRate = data.value > 1 ? data.value / 100 : data.value;
             this.flatDiscount = 0;
-            this.promoMessage = `Code applied! ${data.value * 100}% discount added.`;
-          } else if (data.value != null) {
+            this.promoMessage = `Code applied! ${Math.round(this.discountRate * 100)}% discount added.`;
+          } else {
             this.flatDiscount = data.value;
             this.discountRate = 0;
             this.promoMessage = `Code applied! ₹${data.value} discount added.`;
           }
         } else {
-          this.isPromoApplied = false;
-          this.resetDiscount();
+          this.clearPromo();
           this.promoMessage = data?.message || 'Invalid or expired promo code.';
         }
       },
       error: (err) => {
         console.error('Promo validation error:', err);
-        this.isPromoApplied = false;
-        this.resetDiscount();
+        this.clearPromo();
         this.promoMessage = err.error?.message || 'Failed to validate promo code. Please try again.';
       }
     });
@@ -246,48 +255,54 @@ export class Cart implements OnInit {
     this.applyPromo();
   }
 
-  private resetDiscount() {
+  private clearPromo() {
+    this.isPromoApplied = false;
+    this.appliedCode = null;
+    this.promoMinOrder = null;
     this.discountRate = 0;
     this.flatDiscount = 0;
   }
 
   proceedToCheckout() {
-    const codeToPass = this.promoCode.trim();
+    const codeToPass = this.isPromoApplied && !this.promoLocked ? this.appliedCode : null;
     this.router.navigate(['/checkout'], {
-      queryParams: codeToPass ? { promoCode: codeToPass.toUpperCase() } : {}
+      queryParams: codeToPass ? { promoCode: codeToPass } : {}
     });
   }
+
   // --- Cart Operations ---
   updateQty(productId: number, currentQty: number, change: number, variantId?: number | null) {
     const newQty = currentQty + change;
 
     if (newQty < 1) {
       this.remove(productId, variantId);
-    } else {
-      this.cartService.updateQuantity(productId, newQty, variantId).subscribe({
-        next: () => console.log(`Updated quantity for product ${productId}`),
-        error: (err) => {
-          console.error(err);
-          this.toastService.error('Failed to update quantity. Check stock availability.');
-        }
-      });
+      return;
     }
+
+    this.loading.set(true);
+    this.cartService.updateQuantity(productId, newQty, variantId).subscribe({
+      next: () => this.loading.set(false),
+      error: (err) => {
+        this.loading.set(false);
+        // The server says exactly what is wrong (e.g. not enough stock).
+        this.toastService.error(err.error?.message || 'Failed to update quantity.');
+      }
+    });
   }
 
-  remove(cartItemId: number, variantId?: number | null) {
+  // (The first argument was called "cartItemId", but it is the PRODUCT id.)
+  remove(productId: number, variantId?: number | null) {
     this.loading.set(true);
 
-    this.cartService.removeItem(cartItemId, variantId).subscribe({
-      next: () => {
-        this.cartItems.update(items => items.filter(item => item.id !== cartItemId));
-        this.loading.set(false);
-      },
+    this.cartService.removeItem(productId, variantId).subscribe({
+      next: () => this.loading.set(false),
       error: (err) => {
         this.loading.set(false);
         if (err.status === 404) {
-          this.cartItems.update(items => items.filter(item => item.id !== cartItemId));
+          // Already gone on the server (another tab?). Show the real cart.
+          this.cartService.loadCart().subscribe({ error: () => { } });
         } else {
-          this.toastService.error('Could not remove item. Server error.');
+          this.toastService.error(err.error?.message || 'Could not remove item.');
         }
       }
     });
@@ -305,16 +320,16 @@ export class Cart implements OnInit {
     this.cartService.clearCart().subscribe({
       next: (res) => {
         if (res.success) {
-          this.cartItems.set([]);
+          this.clearPromo();
           this.toastService.success('Cart cleared.');
         } else {
           this.toastService.error(res.message || 'Failed to clear cart');
         }
       },
       error: (err) => {
-        console.error('HTTP Error:', err);
-        this.toastService.error('Failed to clear cart: Server error.');
+        this.toastService.error(err.error?.message || 'Failed to clear cart.');
       }
     });
   }
+  // Removed: the unused cartItems signal, and the console.log calls.
 }

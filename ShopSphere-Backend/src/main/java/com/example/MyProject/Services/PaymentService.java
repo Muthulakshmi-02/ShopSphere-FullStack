@@ -174,7 +174,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.example.MyProject.Repository.CartRepository;
+import java.util.Objects;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -186,13 +187,16 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
+    private final CartRepository cartRepository;
     private final RazorpayService razorpayService;
     private final ApplicationEventPublisher events;
 
     @Transactional
     public RazorpayOrderResponse createRazorpayOrder(Long orderId) {
-        // Row lock (was a plain findById): two quick clicks on "Pay" could each create a
-        // Razorpay order, and a payment against the overwritten one could never be matched.
+        // Row lock (was a plain findById): two quick clicks on "Pay" could each create
+        // a
+        // Razorpay order, and a payment against the overwritten one could never be
+        // matched.
         Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
 
@@ -220,7 +224,8 @@ public class PaymentService {
             }
         } catch (RazorpayException e) {
             log.error("Razorpay order creation failed for order {}: {}", order.getOrderId(), e.getMessage(), e);
-            throw new IllegalArgumentException("Could not start payment right now. Please check your Razorpay credentials.");
+            throw new IllegalArgumentException(
+                    "Could not start payment right now. Please check your Razorpay credentials.");
         }
 
         return RazorpayOrderResponse.builder()
@@ -260,15 +265,18 @@ public class PaymentService {
                 request.getRazorpaySignature());
 
         if (!isReallyPaid) {
-            // No FAILED row is stored any more. payment_details allows ONE row per order (unique
-            // order_id) and unique transaction_id, so a stored FAILED attempt made every later
+            // No FAILED row is stored any more. payment_details allows ONE row per order
+            // (unique
+            // order_id) and unique transaction_id, so a stored FAILED attempt made every
+            // later
             // successful payment for the same order fail with a database error.
             log.warn("Signature verification FAILED for order {} (razorpay order {})",
                     order.getOrderId(), request.getRazorpayOrderId());
             throw new IllegalStateException("Payment verification failed. Please try again or contact support.");
         }
 
-        PaymentDetail payment = recordCompletedPayment(order, request.getRazorpayPaymentId(), request.getPaymentMethod());
+        PaymentDetail payment = recordCompletedPayment(order, request.getRazorpayPaymentId(),
+                request.getPaymentMethod());
         markPaid(order, request.getRazorpayPaymentId());
         orderRepository.save(order);
 
@@ -294,7 +302,7 @@ public class PaymentService {
      */
     @Transactional
     public void handleCapturedPayment(String razorpayOrderId, String razorpayPaymentId,
-                                      long amountPaise, String method) {
+            long amountPaise, String method) {
         Order order = orderRepository.findByRazorpayOrderIdForUpdate(razorpayOrderId).orElse(null);
         if (order == null) {
             log.warn("Webhook: no order found for Razorpay order {} (payment {}). Reconcile manually.",
@@ -321,7 +329,8 @@ public class PaymentService {
             // Money was captured for an order we already cancelled (stock restored).
             order.setRazorpayPaymentId(razorpayPaymentId);
             order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-            log.warn("Webhook: payment {} captured for CANCELLED order {}. Marked REFUND_PENDING - refund it in Razorpay.",
+            log.warn(
+                    "Webhook: payment {} captured for CANCELLED order {}. Marked REFUND_PENDING - refund it in Razorpay.",
                     razorpayPaymentId, order.getOrderId());
         } else {
             markPaid(order, razorpayPaymentId);
@@ -330,7 +339,10 @@ public class PaymentService {
         orderRepository.save(order);
     }
 
-    /** Shared by the browser and webhook paths: PAID, PENDING -> CONFIRMED, email after commit. */
+    /**
+     * Shared by the browser and webhook paths: PAID, PENDING -> CONFIRMED, email
+     * after commit.
+     */
     private void markPaid(Order order, String razorpayPaymentId) {
         order.setPaymentStatus(PaymentStatus.PAID);
         order.setRazorpayPaymentId(razorpayPaymentId);
@@ -338,6 +350,7 @@ public class PaymentService {
             order.setOrderStatus(OrderStatus.CONFIRMED);
         }
         events.publishEvent(new OrderEmailEvent(order.getOrderId(), OrderEmailEvent.Type.CONFIRMATION));
+        removePurchasedLinesFromCart(order); // <-- NEW
     }
 
     // One payment row per order: update it if it exists, otherwise create it.
@@ -367,5 +380,28 @@ public class PaymentService {
         return (principal instanceof UserDetails)
                 ? ((UserDetails) principal).getUsername()
                 : principal.toString();
+    }
+
+    private void removePurchasedLinesFromCart(Order order) {
+        if (order.getUser() == null || order.getOrderItems() == null)
+            return;
+
+        cartRepository.findByUser_UserId(order.getUser().getUserId()).ifPresent(cart -> {
+            if (cart.getItems() == null || cart.getItems().isEmpty())
+                return;
+
+            cart.getItems().removeIf(cartItem -> order.getOrderItems().stream()
+                    .anyMatch(orderItem -> orderItem.getProduct() != null
+                            && orderItem.getProduct().getProductId().equals(cartItem.getProduct().getProductId())
+                            && Objects.equals(
+                                    orderItem.getVariant() != null ? orderItem.getVariant().getVariantId() : null,
+                                    cartItem.getVariant() != null ? cartItem.getVariant().getVariantId() : null)));
+
+            double total = cart.getItems().stream()
+                    .mapToDouble(i -> i.getPrice() * i.getQuantity())
+                    .sum();
+            cart.setTotalAmount(Math.round(total * 100.0) / 100.0);
+            cartRepository.save(cart);
+        });
     }
 }

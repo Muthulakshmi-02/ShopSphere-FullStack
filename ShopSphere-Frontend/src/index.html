@@ -3,9 +3,14 @@
 
 <head>
   <meta charset="utf-8">
-  <title>NewProject</title>
+  <!-- was the default "NewProject" -->
+  <title>ShopSphere</title>
+  <meta name="description" content="ShopSphere: electronics, beauty, toys and more with secure checkout.">
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0B0F1A">
+  <!-- Content-Security-Policy: UNCHANGED. Before you deploy, replace the localhost entries in
+       connect-src with your real API address, or every request will be blocked. -->
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; 
                script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com; 
@@ -17,10 +22,9 @@
 
 
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <!-- Razorpay's Checkout widget - loaded once, globally, since it's only
-       ever opened from the checkout page but is small and safe to have
-       available app-wide. -->
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <!-- Razorpay Checkout: now "async". It is only used when someone pays, but a normal <script> in the
+       head makes EVERY page wait for it to download before it can start rendering. -->
+  <script async src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>

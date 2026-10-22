@@ -735,7 +735,7 @@ public class OrderService {
         order.setPromoCode(promo != null ? promo.code() : null);
         order.setDiscountAmount(discount);
 
-        if (cart != null) {
+       if (cart != null && cod) {
             cart.getItems().clear();
             cart.setTotalAmount(0.0);
             cartRepository.save(cart);
