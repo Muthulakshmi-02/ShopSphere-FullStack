@@ -1034,11 +1034,11 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    private String firstNameOnly(String fullName) {
-        if (fullName == null || fullName.isBlank())
-            return "Someone";
-        return fullName.trim().split("\\s+")[0];
-    }
+    // private String firstNameOnly(String fullName) {
+    //     if (fullName == null || fullName.isBlank())
+    //         return "Someone";
+    //     return fullName.trim().split("\\s+")[0];
+    // }
 
     private String anonymousBuyer(Order order) {
         String city = order.getCity();
