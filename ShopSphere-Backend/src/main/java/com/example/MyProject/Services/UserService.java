@@ -13,7 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.transaction.annotation.Propagation;
 import java.util.Locale;
 
 @Service
@@ -26,7 +26,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final MessageSource messageSource;
 
-    // Compared against when the email does not exist, so a wrong email takes as long as a
+    // Compared against when the email does not exist, so a wrong email takes as
+    // long as a
     // wrong password. Otherwise response time reveals which emails are registered.
     private String dummyHash;
 
@@ -35,6 +36,7 @@ public class UserService {
         dummyHash = passwordEncoder.encode("not-a-real-password");
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ApiResponse<UserResponseDTO> registerUser(RegisterUserDto dto) {
         String email = dto.getEmail().trim().toLowerCase(Locale.ROOT);
         String userName = dto.getUserName().trim();
@@ -61,7 +63,8 @@ public class UserService {
             return failure("messages.email.exists");
         }
 
-        String successMsg = messageSource.getMessage("messages.user.register.success", null, LocaleContextHolder.getLocale());
+        String successMsg = messageSource.getMessage("messages.user.register.success", null,
+                LocaleContextHolder.getLocale());
         return ApiResponse.<UserResponseDTO>builder()
                 .success(true)
                 .data(mapToResponse(user))
@@ -74,14 +77,15 @@ public class UserService {
 
         boolean ok;
         if (user == null) {
-            passwordEncoder.matches(dto.getPassword(), dummyHash);   // equalise timing
+            passwordEncoder.matches(dto.getPassword(), dummyHash); // equalise timing
             ok = false;
         } else {
             ok = passwordEncoder.matches(dto.getPassword(), user.getPassword());
         }
 
         if (!ok) {
-            String errorMsg = messageSource.getMessage("messages.invalid.credentials", null, LocaleContextHolder.getLocale());
+            String errorMsg = messageSource.getMessage("messages.invalid.credentials", null,
+                    LocaleContextHolder.getLocale());
             return ApiResponse.<LoginResponseDTO>builder().success(false).message(errorMsg).build();
         }
 
@@ -92,7 +96,8 @@ public class UserService {
                 .role(user.getRole().name())
                 .build();
 
-        String successMsg = messageSource.getMessage("messages.user.login.success", null, LocaleContextHolder.getLocale());
+        String successMsg = messageSource.getMessage("messages.user.login.success", null,
+                LocaleContextHolder.getLocale());
         return ApiResponse.<LoginResponseDTO>builder()
                 .success(true)
                 .data(response)
