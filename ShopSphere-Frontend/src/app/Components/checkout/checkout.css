@@ -468,3 +468,72 @@
     font-weight: 600;
     font-size: 0.95rem;
 }
+/* =====================================================================
+   PASTE THIS AT THE VERY END of checkout.css (do not delete anything).
+   ===================================================================== */
+
+/* --- Step indicator (same look as the cart page) --- */
+.checkout-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 1.5rem;
+    color: #8B92A8;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.checkout-steps .step.active {
+    color: #FF3D71;
+    font-weight: 700;
+}
+
+.checkout-steps .step.done {
+    color: #B8BFD4;
+}
+
+.checkout-steps .step-divider {
+    width: 40px;
+    height: 1px;
+    background: rgba(245, 245, 247, 0.08);
+}
+
+/* --- PIN code hint --- */
+.pin-hint {
+    margin: 0.4rem 0 0;
+    font-size: 0.82rem;
+    color: #FFB020;
+}
+
+/* --- Cash on delivery note / empty-bag note --- */
+.cod-note {
+    margin: 1rem 0 0;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.cod-note.empty-note {
+    color: #FFB020;
+    background: rgba(255, 176, 32, 0.08);
+    border-color: rgba(255, 176, 32, 0.25);
+}
+
+.cod-note.empty-note a {
+    color: #FF3D71;
+    font-weight: 600;
+}
+
+/* --- Dropdown readability (state list) --- */
+select.form-control {
+    color: #F5F5F7;
+}
+
+select.form-control:invalid {
+    color: #6E7793;
+}

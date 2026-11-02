@@ -89,7 +89,8 @@
           <div class="kpi-card">
             <span class="kpi-label">✅ In Stock</span>
             <span class="kpi-value text-green">{{ stats()?.inStock ?? 0 }}</span>
-            <span class="sub-text">Products</span>
+            <!-- CHANGED: low-stock products are also "in stock", so say so -->
+            <span class="sub-text">Products (includes low stock)</span>
           </div>
 
           <div class="kpi-card">
@@ -133,8 +134,9 @@
                   <th>Category</th>
                   <th>Price</th>
                   <th>Discount</th>
+                  <!-- CHANGED: the separate "Status" column (raw IN_STOCK text) is gone; it repeated
+                       what Stock Health already says. -->
                   <th>Stock Health</th>
-                  <th>Status</th>
                   <th class="text-right">Actions</th>
                 </tr>
               </thead>
@@ -157,7 +159,13 @@
                   <td>
                     <span class="pill">{{ p.categoryName || 'Unassigned' }}</span>
                   </td>
-                  <td>₹{{ p.price | number : '1.2-2' }}</td>
+                  <td>
+                    ₹{{ p.price | number : '1.2-2' }}
+                    <!-- NEW: what the customer actually pays after the discount -->
+                    <div class="sub-text" *ngIf="p.discountPercentage">
+                      Customers pay ₹{{ finalPrice(p) | number : '1.2-2' }}
+                    </div>
+                  </td>
                   <td>
                     <span class="sub-text" *ngIf="p.discountPercentage; else noDisc">
                       {{ p.discountPercentage }}% off
@@ -167,13 +175,8 @@
                   <td>
                     <span class="badge" [class.badge-danger]="p.stock === 0"
                       [class.badge-warning]="p.stock > 0 && p.stock < 10" [class.badge-success]="p.stock >= 10">
-                      {{ p.stock === 0 ? 'Out of Stock' : (p.stock < 10 ? 'Low Stock (' + p.stock + ')' : 'Available ('
-                        + p.stock + ')' ) }} </span>
-                  </td>
-                  <td>
-                    <span class="status-dot" [class.status-green]="p.status === 'IN_STOCK'"
-                      [class.status-red]="p.status === 'OUT_OF_STOCK'"></span>
-                    {{ p.status }}
+                      {{ stockLabel(p) }}
+                    </span>
                   </td>
                   <td class="text-right action-btns">
                     <button class="btn ghost" (click)="openEditProduct(p)">Edit</button>
@@ -182,7 +185,7 @@
                 </tr>
 
                 <tr *ngIf="products().length === 0">
-                  <td colspan="8" class="empty-state">No matching products discovered in the catalog inventory.</td>
+                  <td colspan="7" class="empty-state">No matching products discovered in the catalog inventory.</td>
                 </tr>
               </tbody>
             </table>
@@ -253,58 +256,96 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Customer Order Fulfillment</span>
-            <span class="subtitle-chip" *ngIf="orders()?.length">{{ orders().length }} transactions logged</span>
+            <!-- CHANGED: "transactions logged" -> a plain count that follows the filters -->
+            <span class="subtitle-chip" *ngIf="orders()?.length">
+              {{ filteredOrders().length === orders().length
+              ? orders().length + ' orders'
+              : filteredOrders().length + ' of ' + orders().length + ' orders' }}
+            </span>
+          </div>
+
+          <!-- NEW: search and filters -->
+          <div class="orders-toolbar" *ngIf="orders().length > 0">
+            <input type="text" class="input orders-search" placeholder="Search order #, customer, email or phone…"
+              [ngModel]="orderSearch()" (ngModelChange)="onOrderSearch($event)" />
+
+            <select class="input orders-filter" [ngModel]="orderStatusFilter()"
+              (ngModelChange)="onOrderStatusFilter($event)" aria-label="Filter by fulfillment status">
+              <option value="ALL">All fulfillment statuses</option>
+              <option value="PENDING">Pending</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="SHIPPED">Shipped</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+
+            <select class="input orders-filter" [ngModel]="orderPaymentFilter()"
+              (ngModelChange)="onOrderPaymentFilter($event)" aria-label="Filter by payment state">
+              <option value="ALL">All payment states</option>
+              <option value="PENDING">Payment pending</option>
+              <option value="PAID">Paid</option>
+              <option value="REFUND_PENDING">Refund pending</option>
+            </select>
           </div>
 
           <div class="orders-skeleton" *ngIf="ordersLoading()">
             <div class="skeleton-row" *ngFor="let i of [1,2,3,4]"></div>
           </div>
 
-          <div class="table-wrapper" *ngIf="!ordersLoading() && orders().length > 0">
+          <div class="table-wrapper" *ngIf="!ordersLoading() && filteredOrders().length > 0">
             <table class="table">
               <thead>
                 <tr>
-                  <th>Order Ref</th>
-                  <th>Timestamp</th>
+                  <th>Order</th>
+                  <th>Placed</th>
                   <th>Customer</th>
                   <th>Shipping Address</th>
-                  <th>Line Items</th>
-                  <th>Gross Amount</th>
-                  <th>Payment State</th>
-                  <th>Fulfillment Status</th>
+                  <th>Items</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Payment</th>
+                  <th>Fulfillment</th>
                 </tr>
               </thead>
 
               <tbody>
                 <tr *ngFor="let o of pagedOrders()">
                   <td class="main-text font-mono">#{{ o.orderId }}</td>
-                  <td class="sub-text">{{ o.orderDate | date:'mediumDate' }}</td>
+                  <!-- CHANGED: date AND time, so orders placed on the same day can be told apart -->
+                  <td class="sub-text nowrap">{{ o.orderDate | date:'dd MMM yyyy, hh:mm a' }}</td>
 
-                  <!-- NEW: who to ship to and which number to call -->
                   <td class="customer-cell">
                     <div class="main-text">{{ o.customerName || '—' }}</div>
                     <div class="sub-text">{{ o.customerEmail }}</div>
                     <div class="sub-text">{{ o.phoneNumber }}</div>
                   </td>
 
-                  <td class="sub-text line-clamp">{{ o.shippingAddress || 'No address provided' }}</td>
-                  <td class="sub-text">{{ o.items.length || 0 }} product(s)</td>
+                  <!-- CHANGED: full address on hover instead of being cut off with no way to read it -->
+                  <td class="sub-text line-clamp" [title]="o.shippingAddress">
+                    {{ o.shippingAddress || 'No address provided' }}
+                  </td>
+                  <td class="sub-text" [title]="itemsSummary(o)">{{ o.items.length || 0 }} item(s)</td>
                   <td class="main-text">
                     ₹{{ o.totalAmount | number : '1.2-2' }}
                     <div class="sub-text" *ngIf="o.promoCode">{{ o.promoCode }}: -₹{{ o.discountAmount | number :
                       '1.2-2' }}</div>
                   </td>
+
+                  <!-- NEW: COD or card, which explains why a COD order sits at "pay on delivery" -->
+                  <td class="sub-text nowrap">{{ methodLabel(o) }}</td>
+
                   <td>
-                    <span class="status-badge" [attr.data-status]="o.paymentStatus">{{ o.paymentStatus }}</span>
+                    <span class="status-badge" [attr.data-status]="o.paymentStatus">{{ paymentLabel(o) }}</span>
                     <div class="refund-hint" *ngIf="o.paymentStatus === 'REFUND_PENDING'">
                       Refund this payment in the Razorpay dashboard
                     </div>
                   </td>
                   <td>
-                    <!-- Only the current status and its legal next steps are offered -->
+                    <!-- Only the current status and its legal next steps are offered.
+                         Cancelling (and delivering a COD order) asks for confirmation first. -->
                     <select class="input status-select" [ngModel]="o.orderStatus"
                       [disabled]="updatingOrderId() === o.orderId || statusChoices(o).length === 1"
-                      (ngModelChange)="updateOrderStatus(o.orderId, $event)">
+                      (ngModelChange)="onOrderStatusChange(o, $event)">
                       <option *ngFor="let s of statusChoices(o)" [value]="s">{{ s }}</option>
                     </select>
                   </td>
@@ -314,14 +355,23 @@
           </div>
 
           <div class="empty-state" *ngIf="!ordersLoading() && orders().length === 0">
-            No active customer fulfillment pipelines recorded.
+            No orders have been placed yet.
+          </div>
+          <div class="empty-state" *ngIf="!ordersLoading() && orders().length > 0 && filteredOrders().length === 0">
+            No orders match your search or filters.
           </div>
 
+          <!-- CHANGED: 1 2 3 … 16 instead of one button per page -->
           <div class="pagination" *ngIf="!ordersLoading() && ordersTotalPages() > 1">
             <button class="page-btn" [disabled]="ordersCurrentPage() === 1"
               (click)="goToOrdersPage(ordersCurrentPage() - 1)">← Prev</button>
-            <button *ngFor="let p of ordersPageNumbers()" class="page-btn" [class.active]="ordersCurrentPage() === p"
-              (click)="goToOrdersPage(p)">{{ p }}</button>
+
+            <ng-container *ngFor="let p of ordersPageItems()">
+              <button *ngIf="p !== '…'" class="page-btn" [class.active]="ordersCurrentPage() === p"
+                (click)="goToOrdersPage($any(p))">{{ p }}</button>
+              <span *ngIf="p === '…'" class="page-gap">…</span>
+            </ng-container>
+
             <button class="page-btn" [disabled]="ordersCurrentPage() === ordersTotalPages()"
               (click)="goToOrdersPage(ordersCurrentPage() + 1)">Next →</button>
           </div>
@@ -369,50 +419,70 @@
             <!-- ANALYTICS GRID -->
             <div class="analytics-grid">
 
-              <!-- LEFT PANEL: real daily revenue. This panel used to show three FIXED sample cards
-                   ("Induction Stove ₹50,000", "Silk Cotton ₹6,000", "Barbie Doll ₹2,726.75")
-                   that never changed whatever the store sold. -->
               <div class="analytics-panel">
                 <h3>Revenue by day</h3>
-                <div class="revenue-chart" *ngIf="a.totalOrders > 0; else noRevenue">
-                  <div class="chart-bar-wrap" *ngFor="let d of a.revenueByDay"
-                    [title]="(d.date | date:'mediumDate') + ': ₹' + (d.revenue | number:'1.2-2')">
-                    <div class="chart-bar" [style.height.%]="barHeightPercent(d.revenue)"></div>
+
+                <ng-container *ngIf="a.totalOrders > 0; else noRevenue">
+                  <!-- NEW: a scale on the left and dates underneath, so the bars mean something -->
+                  <div class="chart-wrap">
+                    <div class="chart-y">
+                      <span>₹{{ maxDailyRevenue() | number:'1.0-0' }}</span>
+                      <span>₹0</span>
+                    </div>
+                    <div class="revenue-chart">
+                      <div class="chart-bar-wrap" *ngFor="let d of a.revenueByDay"
+                        [title]="(d.date | date:'mediumDate') + ': ₹' + (d.revenue | number:'1.2-2')">
+                        <div class="chart-bar" [style.height.%]="barHeightPercent(d.revenue)"></div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                  <div class="chart-x">
+                    <span>{{ a.revenueByDay[0].date | date:'d MMM' }}</span>
+                    <span>{{ a.revenueByDay[a.revenueByDay.length - 1].date | date:'d MMM' }}</span>
+                  </div>
+                  <p class="chart-hint">Hover a bar to see that day's revenue.</p>
+                </ng-container>
+
                 <ng-template #noRevenue>
                   <div class="empty-state">No paid orders in this period yet.</div>
                 </ng-template>
-                <p class="chart-hint" *ngIf="a.totalOrders > 0">Hover a bar to see that day's revenue.</p>
               </div>
 
-              <!-- RIGHT PANEL -->
+              <!-- RIGHT PANEL: CHANGED. It used to repeat Revenue / Orders / Average Basket
+                   from the cards directly above. These are new facts. -->
               <div class="analytics-panel">
                 <h3>Quick Insights</h3>
 
                 <div class="insight-item">
-                  <span>Revenue</span>
-                  <strong>₹{{ a.totalRevenue | number:'1.2-2' }}</strong>
-                </div>
-                <div class="insight-item">
-                  <span>Orders</span>
-                  <strong>{{ a.totalOrders }}</strong>
-                </div>
-                <div class="insight-item">
-                  <span>Average Basket</span>
-                  <strong>₹{{ a.averageOrderValue | number:'1.2-2' }}</strong>
-                </div>
-                <div class="insight-item">
                   <span>Best Seller</span>
-                  <!-- was the fixed text "Induction Stove" -->
                   <strong>{{ a.topProducts.length > 0 ? a.topProducts[0].productName : '—' }}</strong>
+                </div>
+                <div class="insight-item">
+                  <span>Best Day</span>
+                  <strong *ngIf="bestDay() as b; else noBestDay">
+                    {{ b.date | date:'d MMM' }} · ₹{{ b.revenue | number:'1.0-0' }}
+                  </strong>
+                  <ng-template #noBestDay><strong>—</strong></ng-template>
+                </div>
+                <div class="insight-item">
+                  <span>Days with orders</span>
+                  <strong>{{ daysWithOrders() }} of {{ analyticsRangeDays() }}</strong>
+                </div>
+                <div class="insight-item">
+                  <span>Avg orders per day</span>
+                  <strong>{{ avgOrdersPerDay() | number:'1.0-1' }}</strong>
                 </div>
               </div>
             </div>
 
             <!-- TOP PRODUCTS -->
             <div class="top-products-section">
-              <h3>Top Revenue Generators</h3>
+              <h3>Top 5 products by revenue</h3>
+              <!-- NEW: explains why this total can be a little different from the Revenue card -->
+              <p class="chart-hint left">
+                Product revenue is counted before promo-code discounts, and only the top 5 are listed, so these
+                figures can add up to a different total than Revenue above.
+              </p>
 
               <table class="table" *ngIf="a.topProducts.length > 0">
                 <thead>
@@ -430,7 +500,8 @@
                         <span class="main-text">{{ p.productName }}</span>
                       </div>
                     </td>
-                    <td class="sub-text">{{ p.unitsSold }} units</td>
+                    <!-- CHANGED: "1 units" -> "1 unit" -->
+                    <td class="sub-text">{{ p.unitsSold }} {{ p.unitsSold === 1 ? 'unit' : 'units' }}</td>
                     <td class="main-text">₹{{ p.revenue | number:'1.2-2' }}</td>
                   </tr>
                 </tbody>
@@ -509,9 +580,9 @@
             </div>
           </div>
 
-          <!-- "Fulfillment Availability" (status) and the Rating / Review-count inputs were removed:
-               the server ignores all three. Status follows stock automatically (0 = Out of Stock) and
-               ratings come only from real customer reviews. -->
+          <!-- Availability, Rating and Review-count inputs are not shown: the server ignores all
+               three. Status follows stock automatically (0 = Out of Stock) and ratings come only
+               from real customer reviews. -->
           <div class="form-field full">
             <span class="form-note">
               Availability is automatic: a product with 0 stock shows as Out of Stock. Ratings come only from real

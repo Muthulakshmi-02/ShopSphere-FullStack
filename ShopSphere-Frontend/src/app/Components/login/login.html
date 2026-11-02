@@ -15,7 +15,7 @@
 
     <!-- Info (just registered / session expired) -->
     @if (infoMessage()) {
-    <div class="alert-info">{{ infoMessage() }}</div>
+    <div class="alert-info" role="status">{{ infoMessage() }}</div>
     }
 
     <!-- Error -->
@@ -27,26 +27,33 @@
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
       <div class="input-group">
         <input type="email" formControlName="email" placeholder="Email" autocomplete="email" aria-label="Email"
+          [attr.aria-invalid]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid ? 'true' : null"
+          aria-describedby="email-error"
           [class.error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid" />
         @if (loginForm.get('email')?.touched && loginForm.get('email')?.invalid) {
-        <span class="error-text">Valid email required</span>
+        <span class="error-text" id="email-error">Valid email required</span>
         }
       </div>
 
       <div class="input-group">
         <input [type]="showPassword() ? 'text' : 'password'" formControlName="password" placeholder="Password"
           autocomplete="current-password" aria-label="Password"
+          [attr.aria-invalid]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid ? 'true' : null"
+          aria-describedby="password-error"
           [class.error]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid" />
         <button type="button" class="password-toggle" (click)="togglePasswordVisibility()"
           [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
           👁️
         </button>
         @if (loginForm.get('password')?.touched && loginForm.get('password')?.invalid) {
-        <span class="error-text">Password is required</span>
+        <span class="error-text" id="password-error">Password is required</span>
         }
       </div>
 
-      <button type="submit" [disabled]="isLoading() || loginForm.invalid">
+      <!-- CHANGED: the button is only disabled while signing in. It used to be disabled (and look dull
+           and washed out) until both fields were valid, so an empty form gave no hint of what to do.
+           Pressing it with a missing field now shows the messages above. -->
+      <button type="submit" [disabled]="isLoading()">
         @if (isLoading()) {
         <span class="spinner"></span> Signing in...
         } @else {
@@ -59,8 +66,5 @@
     <div class="login-footer">
       <p>New user? <a routerLink="/register">Create account</a></p>
     </div>
-
-    <!-- The "admin@shop.com / password123" demo-credentials box was removed: it advertised an
-         admin login and a weak password to every visitor. -->
   </div>
 </div>

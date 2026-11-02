@@ -199,3 +199,41 @@ button[type="submit"]:disabled {
     margin: 0.5rem;
   }
 }
+
+/* =====================================================================
+   PASTE THIS AT THE VERY END of register.css (do not delete anything).
+   Also delete the old ".select-role" and ".select-role:focus" rules: the role field was removed,
+   so they are no longer used.
+   ===================================================================== */
+
+/* The error box was still light pink (#fef2f2), which glared on the dark page. Same look as login. */
+.alert-error {
+  background: rgba(220, 38, 38, 0.12);
+}
+
+/* Password rule shown under the field */
+.field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #8B92A8;
+}
+
+/* Consent line under the button */
+.terms-note {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+  color: #8B92A8;
+}
+
+.terms-note a {
+  color: #FF3D71;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.terms-note a:hover {
+  text-decoration: underline;
+}

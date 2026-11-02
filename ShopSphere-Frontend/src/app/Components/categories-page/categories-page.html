@@ -20,25 +20,27 @@
 
     <div class="categories-grid" *ngIf="!loading() && !loadError()">
 
-        <!-- role="link" + tabindex + Enter: the card was a plain <div> with only a click handler, so it
-             could not be reached or opened with the keyboard. -->
-        <div class="category-card" *ngFor="let category of categories()" role="link" tabindex="0"
-            [attr.aria-label]="'Browse ' + category.name"
-            (click)="openCategory(category.categoryId)" (keydown.enter)="openCategory(category.categoryId)">
+        <!-- role="link" + tabindex + Enter: keyboard users can open a card.
+             CHANGED: a category with no products is marked as such and cannot be opened. -->
+        <div class="category-card" *ngFor="let category of categories()" [class.empty]="isEmpty(category)"
+            [attr.role]="isEmpty(category) ? null : 'link'" [attr.tabindex]="isEmpty(category) ? null : 0"
+            [attr.aria-label]="isEmpty(category) ? category.name + ' (coming soon)' : 'Browse ' + category.name"
+            (click)="openCategory(category)" (keydown.enter)="openCategory(category)">
 
             <div class="card-top">
                 <div class="category-icon">{{ getCategoryIcon(category.name) }}</div>
-                <span class="arrow">→</span>
+                <span class="arrow" *ngIf="!isEmpty(category)">→</span>
             </div>
 
             <h3>{{ category.name | titlecase }}</h3>
 
-            <!-- "12" on its own meant nothing; now "12 products" -->
             <span class="category-count">{{ productCountLabel(category) }}</span>
 
             <p>{{ category.description || ('Browse our ' + (category.name | lowercase) + ' collection.') }}</p>
 
-            <button class="explore-btn" tabindex="-1">Explore Collection</button>
+            <button class="explore-btn" tabindex="-1" [disabled]="isEmpty(category)">
+                {{ isEmpty(category) ? 'Coming soon' : 'Explore Collection' }}
+            </button>
         </div>
 
     </div>

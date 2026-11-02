@@ -275,3 +275,189 @@
 
 /* Cleanup: ".category-count" is defined twice and ".category-status" is unused; the second
    ".category-count" block is the one that applies, so you can delete the first and the unused rule. */
+   /* Complete replacement for categories-page.css.
+   Cleanup: the duplicate ".category-count" rule and the unused ".category-status" rule are gone,
+   and the extra rules that used to sit at the bottom are merged into the right places. */
+
+.categories-page {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 1.25rem 2rem 2rem;
+}
+
+/* --- Page header --- */
+.page-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.page-badge {
+    display: inline-block;
+    padding: .6rem 1.2rem;
+    border-radius: 999px;
+    background: rgba(255, 61, 113, .15);
+    color: #FF3D71;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.page-header h1 {
+    color: #F5F5F7;
+    font-size: 2.7rem;
+    margin-bottom: .5rem;
+}
+
+.page-header p {
+    color: #8B92A8;
+    max-width: 600px;
+    margin: 0 auto .5rem;
+}
+
+/* --- Grid and cards --- */
+.categories-grid {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.category-card {
+    background: #161D2E;
+    border-radius: 28px;
+    padding: 1.5rem;
+    min-height: 260px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, .05);
+    transition: all .3s ease;
+    position: relative;
+    display: flex;
+    overflow: hidden;
+    flex-direction: column;
+}
+
+.category-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(255, 61, 113, .4);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, .25);
+}
+
+.category-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 61, 113, .05), rgba(255, 176, 32, .05));
+    opacity: 0;
+    transition: .3s;
+    /* The gradient sat ABOVE the card content and caught the pointer, so the button never got
+       its own hover. It must not receive the mouse. */
+    pointer-events: none;
+}
+
+.category-card:hover::before {
+    opacity: 1;
+}
+
+.category-card:focus-visible {
+    outline: 2px solid #FF3D71;
+    outline-offset: 3px;
+}
+
+.card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.category-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #FF3D71, #FFB020);
+}
+
+.arrow {
+    font-size: 1.5rem;
+    color: #FF3D71;
+    font-weight: bold;
+}
+
+.category-card h3 {
+    color: #F5F5F7;
+    font-size: 1.5rem;
+    margin-bottom: .75rem;
+}
+
+.category-count {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    width: fit-content;
+    padding: .35rem .75rem;
+    background: rgba(255, 176, 32, .12);
+    color: #FFB020;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 700;
+    margin-bottom: .9rem;
+}
+
+.category-card p {
+    color: #8B92A8;
+    line-height: 1.5;
+    min-height: 55px;
+}
+
+/* --- Button --- */
+.explore-btn {
+    margin-top: auto;
+    width: fit-content;
+    min-width: 160px;
+    border: none;
+    border-radius: 14px;
+    padding: .75rem 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(135deg, #FF3D71, #FFB020);
+}
+
+.explore-btn:hover {
+    opacity: .95;
+}
+
+/* --- NEW: a category with no products yet --- */
+.category-card.empty {
+    cursor: default;
+    opacity: .75;
+}
+
+.category-card.empty:hover {
+    transform: none;
+    border-color: rgba(255, 255, 255, .05);
+    box-shadow: none;
+}
+
+.category-card.empty .category-icon {
+    filter: grayscale(.6);
+}
+
+.explore-btn:disabled {
+    background: rgba(245, 245, 247, .08);
+    color: #8B92A8;
+    cursor: not-allowed;
+}
+
+/* --- Loading / error / empty messages --- */
+.categories-state {
+    text-align: center;
+    color: #8B92A8;
+    padding: 3rem 1rem;
+}
+
+.categories-state p {
+    margin-bottom: 1rem;
+}

@@ -4,6 +4,15 @@
     @if (buyNowSummaryItem()) {
     <div class="buy-now-notice">⚡ Buy Now Mode Active</div>
     }
+
+    <!-- NEW: the cart page showed 01 / 02 / 03, then this page dropped it -->
+    <div class="checkout-steps" aria-label="Checkout progress">
+      <span class="step done">01 Shopping Bag</span>
+      <span class="step-divider"></span>
+      <span class="step active" aria-current="step">02 Checkout</span>
+      <span class="step-divider"></span>
+      <span class="step">03 Confirmation</span>
+    </div>
   </div>
 
   <div class="checkout-content">
@@ -41,38 +50,48 @@
       @if (showNewAddressForm()) {
       <div class="new-address-container">
         <div class="form-group">
-          <label>Street Address</label>
-          <input type="text" class="form-control" [(ngModel)]="orderForm.shippingAddress" name="shippingAddress"
-            placeholder="Enter house/street address" required />
+          <label for="shippingAddress">Street Address</label>
+          <input id="shippingAddress" type="text" class="form-control" [(ngModel)]="orderForm.shippingAddress"
+            name="shippingAddress" placeholder="Enter house/street address" autocomplete="street-address" required />
+        </div>
+
+        <!-- CHANGED: PIN code comes first. Typing it fills in the city and state. -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="zipCode">PIN Code</label>
+            <input id="zipCode" type="text" inputmode="numeric" maxlength="6" class="form-control"
+              [ngModel]="orderForm.zipCode" (ngModelChange)="onPinChange($event)" name="zipCode"
+              placeholder="6-digit PIN code" autocomplete="postal-code" required />
+            @if (pinHint()) {
+            <p class="pin-hint" role="status">{{ pinHint() }}</p>
+            }
+          </div>
+          <div class="form-group">
+            <label for="phoneNumber">Phone Number</label>
+            <input id="phoneNumber" type="tel" maxlength="14" class="form-control" [(ngModel)]="orderForm.phoneNumber"
+              name="phoneNumber" placeholder="10-digit mobile number" autocomplete="tel" required />
+          </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label>City</label>
-            <input type="text" class="form-control" [(ngModel)]="orderForm.city" name="city" placeholder="City"
-              required />
+            <label for="city">City</label>
+            <input id="city" type="text" class="form-control" [(ngModel)]="orderForm.city" name="city"
+              placeholder="City" autocomplete="address-level2" required />
           </div>
           <div class="form-group">
-            <label>State</label>
-            <input type="text" class="form-control" [(ngModel)]="orderForm.state" name="state" placeholder="State"
-              required />
+            <label for="state">State</label>
+            <!-- CHANGED: a list instead of free text, so every address uses the same spelling -->
+            <select id="state" class="form-control custom-select" [(ngModel)]="orderForm.state" name="state"
+              autocomplete="address-level1" required>
+              <option value="" disabled>Select state</option>
+              @for (s of states; track s) {
+              <option [value]="s">{{ s }}</option>
+              }
+            </select>
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label>PIN Code</label>
-            <input type="text" inputmode="numeric" maxlength="6" class="form-control" [(ngModel)]="orderForm.zipCode"
-              name="zipCode" placeholder="6-digit PIN code" required />
-          </div>
-          <div class="form-group">
-            <label>Phone Number</label>
-            <input type="tel" maxlength="14" class="form-control" [(ngModel)]="orderForm.phoneNumber" name="phoneNumber"
-              placeholder="10-digit mobile number" required />
-          </div>
-        </div>
-
-        <!-- Shown for first-time users too (it was hidden when they had no saved addresses) -->
         <div class="save-address-row">
           <label class="save-address-checkbox">
             <input type="checkbox" [(ngModel)]="saveNewAddress" name="saveNewAddress" /> Save this address for future
@@ -81,7 +100,7 @@
           @if (saveNewAddress) {
           <div class="form-group" style="margin-top: 0.5rem;">
             <input type="text" class="form-control" [(ngModel)]="newAddressLabel" name="newAddressLabel"
-              placeholder="Label (e.g., Home, Office)" />
+              placeholder="Label (e.g. Home, Office). Leave empty for Home" maxlength="40" />
           </div>
           }
         </div>
@@ -90,8 +109,6 @@
 
       <div class="form-group" style="margin-top: 2rem;">
         <label>Select Payment Method</label>
-        <!-- Real keyboard support: these were <label>s with only a click handler, so the payment method
-             could not be chosen without a mouse. -->
         <div class="form-row" role="radiogroup" aria-label="Payment method">
           <div class="address-card" role="radio" tabindex="0"
             [attr.aria-checked]="orderForm.paymentMethod === 'CREDIT_CARD'"
@@ -111,14 +128,29 @@
             <p class="address-lines" style="margin-top: 0.2rem;">Pay when you receive</p>
           </div>
         </div>
+
+        <!-- NEW: say exactly what the customer has to do and pay -->
+        @if (!isCardPayment) {
+        <p class="cod-note">
+          💵 You'll pay {{ cartFinalTotal() | currency:'INR' }} in cash when your order arrives.
+        </p>
+        }
       </div>
 
-      <button type="button" class="confirm-order-btn" [disabled]="isProcessing() || promoChecking()"
+      @if (cartIsEmpty) {
+      <p class="cod-note empty-note">
+        Your bag is empty. <a routerLink="/products">Continue shopping</a> to add something.
+      </p>
+      }
+
+      <!-- CHANGED: "Proceed to Checkout" -> "Place Order" (cash) / "Continue to Payment" (card).
+           It is also disabled while the bag is empty. -->
+      <button type="button" class="confirm-order-btn" [disabled]="isProcessing() || promoChecking() || !canSubmit()"
         (click)="confirmOrder()">
         @if (isProcessing()) {
         Processing Order...
         } @else {
-        Proceed to Checkout
+        {{ submitLabel }}
         }
       </button>
       }
@@ -159,7 +191,7 @@
       }
 
       @if (paymentError()) {
-      <div class="payment-error">
+      <div class="payment-error" role="alert">
         {{ paymentError() }}
       </div>
       }
@@ -199,10 +231,16 @@
           </div>
         </div>
         } @else if (cart()?.items?.length) {
-        @for (cartItem of cart()?.items; track cartItem.productId) {
+        <!-- CHANGED: track by cartItemId. The same product in two sizes has the same productId, which
+             made Angular warn about duplicate keys and could mix up the rows. -->
+        @for (cartItem of cart()?.items; track cartItem.cartItemId) {
         <div class="cart-item">
           <div class="item-details">
             <h4>{{ cartItem.productName }}</h4>
+            <!-- NEW: Buy Now showed the size/colour, the bag did not -->
+            @if (cartItem.variantLabel) {
+            <p>Variant: {{ cartItem.variantLabel }}</p>
+            }
             <p>Qty: {{ cartItem.quantity }}</p>
           </div>
           <div class="item-price">

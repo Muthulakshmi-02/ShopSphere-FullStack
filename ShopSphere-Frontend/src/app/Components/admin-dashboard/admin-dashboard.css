@@ -1300,3 +1300,90 @@ textarea.input {
     font-size: 0.78rem;
     color: #94a3b8;
 }
+/* =====================================================================
+   PASTE THIS AT THE VERY END of admin-dashboard.css (do not delete anything).
+   Later rules override earlier ones, so order matters: keep it last.
+   ===================================================================== */
+
+/* --- FIX: the fulfillment dropdown was cut off ("PENDIN", "CONFIR", "SHIPPE") ---
+   .input forces width:100% inside a narrow table cell. Give the select its own room. */
+.status-select {
+    width: auto;
+    min-width: 150px;
+    padding-right: 2rem;
+}
+
+/* The orders table now has 9 columns: scroll sideways on small screens instead of squashing. */
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+/* --- Orders: search and filters --- */
+.orders-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 4px 0 8px;
+}
+
+.orders-search {
+    flex: 1 1 260px;
+    min-width: 220px;
+}
+
+.orders-filter {
+    flex: 0 0 200px;
+    width: 200px;
+}
+
+/* --- Orders: "1 2 3 … 16" pagination --- */
+.page-gap {
+    color: var(--text-soft);
+    padding: 0 4px;
+    user-select: none;
+}
+
+/* --- Analytics chart: scale on the left, dates underneath --- */
+.chart-wrap {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.chart-wrap .revenue-chart {
+    flex: 1;
+    min-width: 0;
+}
+
+.chart-y {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px 0;
+    min-width: 62px;
+    text-align: right;
+    font-size: 0.72rem;
+    color: var(--text-soft);
+}
+
+.chart-x {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0 0 72px;
+    font-size: 0.72rem;
+    color: var(--text-soft);
+}
+
+.chart-hint.left {
+    text-align: left;
+    margin: 0 0 12px;
+}
+
+/* --- Small contrast fix: the "MANAGEMENT" label was hard to read on the dark sidebar --- */
+.sidebar-section-title {
+    color: #94a3b8;
+}

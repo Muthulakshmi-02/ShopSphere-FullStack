@@ -19,14 +19,17 @@
             <div class="order-header">
                 <div class="header-main">
                     <span class="order-number">Order #{{ order.orderId }}</span>
-                    <span class="order-date">{{ order.orderDate | date:'mediumDate' }}</span>
+                    <!-- CHANGED: date and time -->
+                    <span class="order-date">{{ order.orderDate | date:'dd MMM yyyy, hh:mm a' }}</span>
                 </div>
                 <div class="header-status">
                     <span class="status-badge" [attr.data-status]="order.orderStatus">
                         {{ order.orderStatus }}
                     </span>
-                    <span class="status-badge" [attr.data-status]="order.paymentStatus">
-                        {{ order.paymentStatus }}
+                    <!-- CHANGED: was the raw payment status, so a Cash on Delivery order showed a green
+                         CONFIRMED next to a yellow PENDING. Now it says "Pay on delivery". -->
+                    <span class="status-badge" [attr.data-status]="paymentBadgeStatus(order)">
+                        {{ paymentLabel(order) }}
                     </span>
                 </div>
             </div>
@@ -52,13 +55,18 @@
                     <strong>Shipping to:</strong> {{ order.shippingAddress }}
                 </div>
                 <div class="total-summary">
-                    <!-- "Total Paid" was shown even for unpaid and Cash on Delivery orders -->
                     <span>{{ order.paymentStatus === 'PAID' ? 'Total paid:' : 'Total:' }}</span>
                     <strong>{{ order.totalAmount | currency:'INR' }}</strong>
                     <div class="promo-line" *ngIf="order.promoCode && order.discountAmount">
                         {{ order.promoCode }}: -{{ order.discountAmount | currency:'INR' }}
                     </div>
                 </div>
+
+                <!-- NEW: tells a customer who cancelled a paid order what happens to their money -->
+                <p class="refund-note" *ngIf="order.paymentStatus === 'REFUND_PENDING'">
+                    Your payment will be refunded to your original payment method. It can take a few business days
+                    to appear.
+                </p>
 
                 <div class="order-actions" *ngIf="canPay(order) || canCancel(order)">
                     <span class="pay-hint" *ngIf="canPay(order)">

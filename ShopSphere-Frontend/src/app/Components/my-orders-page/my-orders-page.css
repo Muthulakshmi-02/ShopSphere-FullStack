@@ -259,3 +259,31 @@
     padding: 3rem 1rem;
     color: #8B92A8;
 }
+
+/* =====================================================================
+   PASTE THIS AT THE VERY END of my-orders-page.css (do not delete anything).
+   ===================================================================== */
+
+/* Cash on delivery: normal, waiting for the parcel. A calm blue, not a warning yellow. */
+.status-badge[data-status="COD"] {
+    background: rgba(61, 232, 255, 0.12);
+    color: #3DE8FF;
+}
+
+/* A cancelled order that was never charged: neutral grey. */
+.status-badge[data-status="NONE"] {
+    background: rgba(245, 245, 247, 0.08);
+    color: #8B92A8;
+}
+
+/* Explains what happens to the money after a paid order is cancelled */
+.refund-note {
+    width: 100%;
+    margin: 0;
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    color: #FFB020;
+    background: rgba(255, 176, 32, 0.08);
+    border: 1px solid rgba(255, 176, 32, 0.25);
+}
