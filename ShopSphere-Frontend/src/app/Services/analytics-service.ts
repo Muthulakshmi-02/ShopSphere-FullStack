@@ -1,7 +1,8 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse } from '../Models/User.model';
+import { API_BASE_URL } from '../shared/api.config';
 
 export interface DailyRevenuePoint {
   date: string;
@@ -28,9 +29,12 @@ export interface AnalyticsResponse {
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {
   private http = inject(HttpClient);
-  private readonly API_URL = 'http://localhost:8080/api/admin/analytics';
+
+  // CHANGED: was 'http://localhost:8080/api/admin/analytics'. It follows API_BASE_URL now.
+  private readonly API_URL = `${API_BASE_URL}/api/admin/analytics`;
 
   getAnalytics(days: number = 30): Observable<ApiResponse<AnalyticsResponse>> {
-    return this.http.get<ApiResponse<AnalyticsResponse>>(`${this.API_URL}?days=${days}`);
+    const params = new HttpParams().set('days', days.toString());
+    return this.http.get<ApiResponse<AnalyticsResponse>>(this.API_URL, { params });
   }
 }

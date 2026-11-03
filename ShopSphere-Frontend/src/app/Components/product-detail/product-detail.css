@@ -581,3 +581,45 @@
   color: #FF3D71;
   border-color: #FF3D71;
 }
+/* =====================================================================
+   PASTE THIS AT THE VERY END of product-detail.css (do not delete anything).
+   ===================================================================== */
+
+/* A size / colour with no stock: greyed out, struck through, not clickable */
+.variant-chip.sold-out,
+.variant-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.variant-chip.sold-out:hover,
+.variant-chip:disabled:hover {
+  border-color: var(--zn-border, rgba(245, 245, 247, 0.08));
+}
+
+/* "Sign in" link inside the review note */
+.review-gate-note a {
+  color: #FF3D71;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.review-gate-note a:hover {
+  text-decoration: underline;
+}
+
+/* Keyboard focus on the main controls */
+.variant-chip:focus-visible,
+.star-btn:focus-visible,
+.btn-buy-now:focus-visible,
+.btn-add-to-cart:focus-visible,
+.btn-wishlist-full:focus-visible {
+  outline: 2px solid #FF3D71;
+  outline-offset: 2px;
+}
+
+/* The reviews block now sits below the whole product area, so give it breathing room */
+.detail-container > .reviews-section {
+  margin-top: var(--zn-space-8, 48px);
+}

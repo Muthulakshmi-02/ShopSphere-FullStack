@@ -1,7 +1,10 @@
+
+
+
 // import { Component, OnInit, inject, signal, computed } from '@angular/core';
 // import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 // import { FormsModule } from '@angular/forms';
-// import { ActivatedRoute, RouterLink } from '@angular/router';
+// import { ActivatedRoute, RouterLink, Router } from '@angular/router';
 // import { Title, Meta } from '@angular/platform-browser';
 // import { ProductService } from '../../Services/product-service';
 // import { CartService } from '../../Services/cart-service';
@@ -30,18 +33,17 @@
 //   private toastService = inject(ToastService);
 //   private titleService = inject(Title);
 //   private metaService = inject(Meta);
+//   private router = inject(Router);
 
 //   protected readonly productImageUrl = productImageUrl;
 
 //   product = signal<ProductResponse | null>(null);
 //   loading = signal(true);
 //   notFound = signal(false);
+//   loadError = signal(false); // <--- ADDED: Fixes TS2339 error
 //   quantity = signal(1);
 
 //   // --- Variants ---
-//   // Selection is tracked as size/color separately so a product that only
-//   // varies by one axis (e.g. a single-size accessory in different colors)
-//   // doesn't force the customer through a redundant "size" choice.
 //   selectedSize = signal<string | null>(null);
 //   selectedColor = signal<string | null>(null);
 
@@ -76,8 +78,6 @@
 //     ) ?? null;
 //   });
 
-//   // Effective stock/price for whatever's currently selected - falls back
-//   // to the base product for simple (non-variant) products.
 //   effectiveStock = computed(() => {
 //     const product = this.product();
 //     if (!product) return 0;
@@ -126,22 +126,17 @@
 //       },
 //       error: (err) => {
 //         this.loading.set(false);
-//         // BUG FIX: this used to set notFound for ANY error (network issue,
-//         // 500, etc.), showing the misleading "Product not found" message
-//         // even when the product exists and something else genuinely went
-//         // wrong. Only a real 404 means "doesn't exist" - anything else
-//         // gets a distinct, honest error state instead.
 //         if (err.status === 404) {
 //           this.notFound.set(true);
 //         } else {
-//           this.loadError.set(true);
+//           this.loadError.set(true); // Now successfully references the signal property above
 //         }
 //       }
 //     });
 
 //     this.loadReviews(productId);
 
-//     if (this.authService.isLoggedIn()) {
+//     if (this.authService.isLoggedIn() && !this.authService.isAdmin()) {
 //       this.reviewService.checkEligibility(productId).subscribe({
 //         next: (res) => this.eligibility.set(res.data ?? null),
 //         error: (err) => console.error('Failed to check review eligibility', err),
@@ -149,9 +144,6 @@
 //     }
 //   }
 
-//   // If a product only has one size (or one color) across all its variants,
-//   // there's nothing to actually choose - auto-select it so the customer
-//   // isn't stuck clicking a "pick one" button with only one option.
 //   private preselectSingleOptionVariants(product: ProductResponse): void {
 //     const sizes = Array.from(new Set((product.variants ?? []).map(v => v.size).filter((s): s is string => !!s)));
 //     const colors = Array.from(new Set((product.variants ?? []).map(v => v.color).filter((c): c is string => !!c)));
@@ -173,12 +165,6 @@
 //     });
 //   }
 
-//   /**
-//    * Real per-product SEO - each product now has its own URL (/products/:id)
-//    * and its own <title>/meta description, instead of every product sharing
-//    * one generic listing-page title. This is what actually makes individual
-//    * products discoverable/indexable, not just the storefront as a whole.
-//    */
 //   private setSeoTags(product: ProductResponse): void {
 //     const title = `${product.name} - Buy Online`;
 //     const description = product.description?.slice(0, 155) ||
@@ -248,7 +234,6 @@
 //     });
 //   }
 
-//   // --- Review submission ---
 //   setReviewRating(stars: number): void {
 //     this.newReviewRating.set(stars);
 //   }
@@ -284,6 +269,24 @@
 //       }
 //     });
 //   }
+//   buyNow(): void {
+//     const product = this.product();
+//     if (!product) return;
+
+//     if (this.hasVariants() && !this.selectedVariant()) {
+//       this.toastService.error('Please select a size/color first.');
+//       return;
+//     }
+
+//     // Navigate directly to checkout, bypassing cart addition
+//     this.router.navigate(['/checkout'], {
+//       queryParams: {
+//         buyNow: product.productId,
+//         quantity: this.quantity(),
+//         variantId: this.selectedVariant()?.variantId ?? null
+//       }
+//     });
+//   }
 // }
 
 
@@ -301,6 +304,9 @@ import { ToastService } from '../../shared/toast/toast-service';
 import { ProductResponse, ProductVariantResponse } from '../../Models/Product.model';
 import { ReviewResponse, ReviewEligibilityResponse } from '../../Models/Review.model';
 import { productImageUrl } from '../../shared/api.config';
+
+// The server refuses a quantity above 99 (the cart and the order both enforce it).
+const MAX_QUANTITY = 99;
 
 @Component({
   selector: 'app-product-detail',
@@ -326,7 +332,7 @@ export class ProductDetail implements OnInit {
   product = signal<ProductResponse | null>(null);
   loading = signal(true);
   notFound = signal(false);
-  loadError = signal(false); // <--- ADDED: Fixes TS2339 error
+  loadError = signal(false);
   quantity = signal(1);
 
   // --- Variants ---
@@ -371,13 +377,23 @@ export class ProductDetail implements OnInit {
     return this.selectedVariant()?.stock ?? 0;
   });
 
-  effectivePrice = computed(() => {
+  // The price before any discount: the chosen option's own price if it has one.
+  basePrice = computed(() => {
     const product = this.product();
     if (!product) return 0;
     const override = this.hasVariants() ? this.selectedVariant()?.priceOverride : null;
-    const base = override ?? product.price;
+    return override ?? product.price;
+  });
+
+  // CHANGED: rounded to paise (half up), the way the server rounds, so this page can never show a
+  // different amount than the one charged.
+  effectivePrice = computed(() => {
+    const product = this.product();
+    if (!product) return 0;
+    const base = this.basePrice();
     if (!product.discountPercentage) return base;
-    return base * (1 - product.discountPercentage / 100);
+    const value = base - (base * product.discountPercentage) / 100;
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   });
 
   // --- Reviews ---
@@ -415,7 +431,7 @@ export class ProductDetail implements OnInit {
         if (err.status === 404) {
           this.notFound.set(true);
         } else {
-          this.loadError.set(true); // Now successfully references the signal property above
+          this.loadError.set(true);
         }
       }
     });
@@ -464,35 +480,72 @@ export class ProductDetail implements OnInit {
     this.metaService.updateTag({ property: 'og:type', content: 'product' });
   }
 
+  // ---------- Who may shop ----------
+  get isLoggedIn(): boolean {
+    return this.authService.isLoggedIn();
+  }
+
+  // The server only lets customers buy (cart, checkout, wishlist). Tell an admin why nothing happens.
+  private blockedForAdmin(): boolean {
+    if (this.authService.isLoggedIn() && this.authService.isAdmin()) {
+      this.toastService.info('You are signed in as an administrator. Sign in with a customer account to shop.');
+      return true;
+    }
+    return false;
+  }
+
+  private sendToLogin(message: string): void {
+    this.toastService.info(message);
+    this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+  }
+
   isInWishlist(productId: number): boolean {
     return this.wishlistService.isWishlisted(productId);
   }
 
   toggleWishlist(productId: number): void {
+    // CHANGED: a guest is sent to sign in and brought back here (it was only an error message).
     if (!this.authService.isLoggedIn()) {
-      this.toastService.error('Please login first to use your wishlist.');
+      this.sendToLogin('Please sign in to use your wishlist.');
       return;
     }
+    if (this.blockedForAdmin()) return;
+
     this.wishlistService.toggle(productId).subscribe({
       next: (res) => this.toastService.success(res.data ? 'Added to wishlist.' : 'Removed from wishlist.'),
       error: () => this.toastService.error('Could not update wishlist.'),
     });
   }
 
+  // ---------- Options ----------
+  // NEW: a size (or colour) that has no stock in ANY variant is greyed out and cannot be picked,
+  // instead of letting the customer choose it and only then see "Out of stock".
+  isSizeSoldOut(size: string): boolean {
+    const matching = (this.product()?.variants ?? []).filter(v => v.size === size);
+    return matching.length > 0 && matching.every(v => v.stock <= 0);
+  }
+
+  isColorSoldOut(color: string): boolean {
+    const matching = (this.product()?.variants ?? []).filter(v => v.color === color);
+    return matching.length > 0 && matching.every(v => v.stock <= 0);
+  }
+
   selectSize(size: string): void {
+    if (this.isSizeSoldOut(size)) return;
     this.selectedSize.set(size);
     this.quantity.set(1);
   }
 
   selectColor(color: string): void {
+    if (this.isColorSoldOut(color)) return;
     this.selectedColor.set(color);
     this.quantity.set(1);
   }
 
   changeQuantity(delta: number): void {
     const next = this.quantity() + delta;
-    const stock = this.effectiveStock();
-    if (next >= 1 && next <= stock) {
+    const max = Math.min(this.effectiveStock(), MAX_QUANTITY);
+    if (next >= 1 && next <= max) {
       this.quantity.set(next);
     }
   }
@@ -500,6 +553,13 @@ export class ProductDetail implements OnInit {
   addToCart(): void {
     const product = this.product();
     if (!product) return;
+
+    // CHANGED: guests are sent to sign in and brought back to this product.
+    if (!this.authService.isLoggedIn()) {
+      this.sendToLogin('Please sign in to add items to your cart.');
+      return;
+    }
+    if (this.blockedForAdmin()) return;
 
     if (this.hasVariants() && !this.selectedVariant()) {
       this.toastService.error('Please select a size/color first.');
@@ -511,15 +571,34 @@ export class ProductDetail implements OnInit {
     this.cartService.addItemToCart(product.productId, this.quantity(), variantId).subscribe({
       next: () => this.toastService.success('Added to your cart!'),
       error: (err) => {
-        if (err.status === 401) {
-          this.toastService.error('Please login first to add items to the cart.');
-        } else {
-          this.toastService.error(err.error?.message || 'Could not add item to cart.');
-        }
+        this.toastService.error(err.error?.message || 'Could not add item to cart.');
       }
     });
   }
 
+  buyNow(): void {
+    const product = this.product();
+    if (!product) return;
+
+    if (this.blockedForAdmin()) return;
+
+    if (this.hasVariants() && !this.selectedVariant()) {
+      this.toastService.error('Please select a size/color first.');
+      return;
+    }
+
+    // Straight to checkout, bypassing the cart. A guest is sent to sign in by the route guard
+    // and comes back to checkout afterwards.
+    this.router.navigate(['/checkout'], {
+      queryParams: {
+        buyNow: product.productId,
+        quantity: this.quantity(),
+        variantId: this.selectedVariant()?.variantId ?? null
+      }
+    });
+  }
+
+  // ---------- Reviews ----------
   setReviewRating(stars: number): void {
     this.newReviewRating.set(stars);
   }
@@ -552,24 +631,6 @@ export class ProductDetail implements OnInit {
       error: (err) => {
         this.submittingReview.set(false);
         this.toastService.error(err.error?.message || 'Could not submit your review.');
-      }
-    });
-  }
-  buyNow(): void {
-    const product = this.product();
-    if (!product) return;
-
-    if (this.hasVariants() && !this.selectedVariant()) {
-      this.toastService.error('Please select a size/color first.');
-      return;
-    }
-
-    // Navigate directly to checkout, bypassing cart addition
-    this.router.navigate(['/checkout'], {
-      queryParams: {
-        buyNow: product.productId,
-        quantity: this.quantity(),
-        variantId: this.selectedVariant()?.variantId ?? null
       }
     });
   }

@@ -1,5 +1,3 @@
-<!-- These three used to sit INSIDE the *ngIf="!loading() && product()" container,
-     so they could never be displayed. They now live outside it. -->
 <div class="detail-loading" *ngIf="loading()">Loading product…</div>
 
 <div class="detail-not-found" *ngIf="!loading() && notFound()">
@@ -15,7 +13,7 @@
 </div>
 
 <div class="detail-container" *ngIf="!loading() && product() as p">
-  <nav class="breadcrumb">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
     <a routerLink="/products">Shop</a>
     <span>/</span>
     <span>{{ p.name }}</span>
@@ -45,7 +43,7 @@
         </ng-container>
         <ng-container *ngIf="p.discountPercentage">
           <span class="original-price">
-            {{ (selectedVariant()?.priceOverride ?? p.price) | currency:'INR':'symbol':'1.2-2' }}
+            {{ basePrice() | currency:'INR':'symbol':'1.2-2' }}
           </span>
           <span class="final-price">
             {{ effectivePrice() | currency:'INR':'symbol':'1.2-2' }}
@@ -57,8 +55,11 @@
         <div class="variant-group" *ngIf="availableSizes().length > 0">
           <span class="variant-label">Size</span>
           <div class="variant-options">
+            <!-- CHANGED: a size with no stock is greyed out and cannot be chosen -->
             <button *ngFor="let size of availableSizes()" class="variant-chip"
-              [class.selected]="selectedSize() === size" (click)="selectSize(size)">{{ size }}</button>
+              [class.selected]="selectedSize() === size" [class.sold-out]="isSizeSoldOut(size)"
+              [disabled]="isSizeSoldOut(size)" [attr.aria-pressed]="selectedSize() === size"
+              [attr.title]="isSizeSoldOut(size) ? 'Sold out' : null" (click)="selectSize(size)">{{ size }}</button>
           </div>
         </div>
 
@@ -66,7 +67,9 @@
           <span class="variant-label">Color</span>
           <div class="variant-options">
             <button *ngFor="let color of availableColors()" class="variant-chip"
-              [class.selected]="selectedColor() === color" (click)="selectColor(color)">{{ color }}</button>
+              [class.selected]="selectedColor() === color" [class.sold-out]="isColorSoldOut(color)"
+              [disabled]="isColorSoldOut(color)" [attr.aria-pressed]="selectedColor() === color"
+              [attr.title]="isColorSoldOut(color) ? 'Sold out' : null" (click)="selectColor(color)">{{ color }}</button>
           </div>
         </div>
 
@@ -89,9 +92,10 @@
       <div class="quantity-row" *ngIf="effectiveStock() > 0">
         <span>Quantity</span>
         <div class="qty-stepper">
-          <button (click)="changeQuantity(-1)" [disabled]="quantity() <= 1">−</button>
+          <button (click)="changeQuantity(-1)" [disabled]="quantity() <= 1" aria-label="Decrease quantity">−</button>
           <span>{{ quantity() }}</span>
-          <button (click)="changeQuantity(1)" [disabled]="quantity() >= effectiveStock()">+</button>
+          <button (click)="changeQuantity(1)" [disabled]="quantity() >= effectiveStock()"
+            aria-label="Increase quantity">+</button>
         </div>
       </div>
 
@@ -112,59 +116,68 @@
           ❤️ {{ isInWishlist(p.productId) ? 'Remove from Wishlist' : 'Add to Wishlist' }}
         </button>
       </div>
-
-      <!-- Reviews section -->
-      <section class="reviews-section">
-        <div class="reviews-header">
-          <h2>Customer Reviews</h2>
-          <button class="write-review-btn" *ngIf="eligibility()?.canReview && !showReviewForm()"
-            (click)="showReviewForm.set(true)">Write a Review</button>
-        </div>
-
-        <p class="review-gate-note" *ngIf="eligibility() as e">
-          <ng-container *ngIf="e.alreadyReviewed">You've already reviewed this product - thanks!</ng-container>
-          <ng-container *ngIf="!e.hasPurchased && !e.alreadyReviewed">You can write a review once an order containing
-            this product has been delivered.
-            leave a review.</ng-container>
-        </p>
-
-        <div class="review-form" *ngIf="showReviewForm()">
-          <div class="star-input">
-            <button *ngFor="let s of [1,2,3,4,5]" type="button" class="star-btn" [class.filled]="s <= newReviewRating()"
-              (click)="setReviewRating(s)">★</button>
-          </div>
-          <textarea [(ngModel)]="newReviewComment" placeholder="Share your thoughts about this product (optional)"
-            rows="3" maxlength="1000"></textarea>
-          <div class="review-form-actions">
-            <button class="submit-review-btn" [disabled]="submittingReview()" (click)="submitReview()">
-              {{ submittingReview() ? 'Submitting…' : 'Submit Review' }}
-            </button>
-            <button class="cancel-review-btn" [disabled]="submittingReview()"
-              (click)="showReviewForm.set(false)">Cancel</button>
-          </div>
-        </div>
-
-        <div class="reviews-skeleton" *ngIf="reviewsLoading()">
-          <div class="skeleton-review" *ngFor="let i of [1,2]"></div>
-        </div>
-
-        <div class="reviews-list" *ngIf="!reviewsLoading() && reviews().length > 0">
-          <div class="review-card" *ngFor="let r of reviews()">
-            <div class="review-card-header">
-              <span class="reviewer-name">{{ r.reviewerName }}</span>
-              <span class="review-stars">
-                <span *ngFor="let s of [1,2,3,4,5]" [class.filled]="s <= r.rating">★</span>
-              </span>
-              <span class="review-date">{{ r.createdAt | date:'mediumDate' }}</span>
-            </div>
-            <p class="review-comment" *ngIf="r.comment">{{ r.comment }}</p>
-          </div>
-        </div>
-
-        <p class="no-reviews" *ngIf="!reviewsLoading() && reviews().length === 0">
-          No reviews yet - be the first to share your thoughts.
-        </p>
-      </section>
     </div>
   </div>
+
+  <!-- Reviews section.
+       CHANGED: it used to sit INSIDE the right-hand column, squeezed to half the page width, although its
+       styles (full-width, top border) were written for a section below the whole product block. -->
+  <section class="reviews-section">
+    <div class="reviews-header">
+      <h2>Customer Reviews</h2>
+      <button class="write-review-btn" *ngIf="eligibility()?.canReview && !showReviewForm()"
+        (click)="showReviewForm.set(true)">Write a Review</button>
+    </div>
+
+    <!-- CHANGED: this sentence ended with a stray "leave a review." left over from an edit -->
+    <p class="review-gate-note" *ngIf="eligibility() as e">
+      <ng-container *ngIf="e.alreadyReviewed">You've already reviewed this product - thanks!</ng-container>
+      <ng-container *ngIf="!e.hasPurchased && !e.alreadyReviewed">You can write a review once an order containing
+        this product has been delivered.</ng-container>
+    </p>
+
+    <!-- NEW: guests were told nothing about who can review -->
+    <p class="review-gate-note" *ngIf="!eligibility() && !isLoggedIn">
+      Only customers whose order has been delivered can review a product.
+      <a routerLink="/login" [queryParams]="{ returnUrl: '/products/' + p.productId }">Sign in</a> to check.
+    </p>
+
+    <div class="review-form" *ngIf="showReviewForm()">
+      <div class="star-input" role="radiogroup" aria-label="Your rating">
+        <button *ngFor="let s of [1,2,3,4,5]" type="button" class="star-btn" [class.filled]="s <= newReviewRating()"
+          [attr.aria-label]="s + (s === 1 ? ' star' : ' stars')" [attr.aria-pressed]="s === newReviewRating()"
+          (click)="setReviewRating(s)">★</button>
+      </div>
+      <textarea [(ngModel)]="newReviewComment" placeholder="Share your thoughts about this product (optional)"
+        rows="3" maxlength="1000" aria-label="Your review"></textarea>
+      <div class="review-form-actions">
+        <button class="submit-review-btn" [disabled]="submittingReview()" (click)="submitReview()">
+          {{ submittingReview() ? 'Submitting…' : 'Submit Review' }}
+        </button>
+        <button class="cancel-review-btn" [disabled]="submittingReview()"
+          (click)="showReviewForm.set(false)">Cancel</button>
+      </div>
+    </div>
+
+    <div class="reviews-skeleton" *ngIf="reviewsLoading()">
+      <div class="skeleton-review" *ngFor="let i of [1,2]"></div>
+    </div>
+
+    <div class="reviews-list" *ngIf="!reviewsLoading() && reviews().length > 0">
+      <div class="review-card" *ngFor="let r of reviews()">
+        <div class="review-card-header">
+          <span class="reviewer-name">{{ r.reviewerName }}</span>
+          <span class="review-stars" [attr.aria-label]="r.rating + ' out of 5 stars'">
+            <span *ngFor="let s of [1,2,3,4,5]" [class.filled]="s <= r.rating">★</span>
+          </span>
+          <span class="review-date">{{ r.createdAt | date:'mediumDate' }}</span>
+        </div>
+        <p class="review-comment" *ngIf="r.comment">{{ r.comment }}</p>
+      </div>
+    </div>
+
+    <p class="no-reviews" *ngIf="!reviewsLoading() && reviews().length === 0">
+      No reviews yet - be the first to share your thoughts.
+    </p>
+  </section>
 </div>

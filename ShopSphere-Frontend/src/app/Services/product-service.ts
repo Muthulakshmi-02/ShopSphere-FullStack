@@ -1,70 +1,10 @@
-// import { Injectable } from '@angular/core';
-// import { inject } from '@angular/core';
-// import { HttpClient, HttpParams } from '@angular/common/http';
-// import { Observable } from 'rxjs';
-// import { ApiResponse } from '../Models/User.model'; // Assuming this is your standard wrapper
-// import { ProductResponse, ProductRequest } from '../Models/Product.model';
-
-// @Injectable({ providedIn: 'root' })
-// export class ProductService {
-//   private http = inject(HttpClient);
-//   private readonly API_URL = '/api/products';
-
-//   /**
-//    * Fetches products using your Backend's Unified Filter Logic
-//    * Maps to: @GetMapping in ProductController
-//    */
-//   getFilteredProducts(
-//     keyword: string = '',
-//     categoryId: number | null = null,
-//     minPrice: number = 0,
-//     maxPrice: number = 1000000,
-//     page: number = 0,
-//     size: number = 10,
-//     sort: string = 'price,asc'
-//   ): Observable<ApiResponse<any>> {
-
-//     // Build parameters exactly as your @RequestParam expects them
-//     let params = new HttpParams()
-//       .set('minPrice', minPrice.toString())
-//       .set('maxPrice', maxPrice.toString())
-//       .set('page', page.toString())
-//       .set('size', size.toString())
-//       .set('sort', sort);
-
-//     if (keyword) params = params.set('keyword', keyword);
-//     if (categoryId) params = params.set('categoryId', categoryId.toString());
-
-//     return this.http.get<ApiResponse<any>>(this.API_URL, { params });
-//   }
-
-//   /**
-//    * Fetches a single product by ID
-//    * Maps to: @GetMapping("/{productId}")
-//    */
-//   getProductById(productId: number): Observable<ApiResponse<ProductResponse>> {
-//     return this.http.get<ApiResponse<ProductResponse>>(`${this.API_URL}/${productId}`);
-//   }
-
-//   // Admin Methods (Require JWT)
-//   createProduct(product: ProductRequest): Observable<ApiResponse<ProductResponse>> {
-//     return this.http.post<ApiResponse<ProductResponse>>(this.API_URL, product);
-//   }
-
-//   updateProduct(id: number, product: ProductRequest): Observable<ApiResponse<ProductResponse>> {
-//     return this.http.put<ApiResponse<ProductResponse>>(`${this.API_URL}/${id}`, product);
-//   }
-
-//   deleteProduct(id: number): Observable<ApiResponse<void>> {
-//     return this.http.delete<ApiResponse<void>>(`${this.API_URL}/${id}`);
-//   }
-// }
-
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse } from '../Models/User.model';
 import { ProductResponse, ProductRequest } from '../Models/Product.model';
+import { API_BASE_URL } from '../shared/api.config';
+
 // Generic Spring Data-style Page response
 export interface Page<T> {
   content: T[];
@@ -73,6 +13,7 @@ export interface Page<T> {
   size: number;
   number: number;        // current page index (0-based)
 }
+
 export interface ProductStats {
   total: number;
   inStock: number;
@@ -83,7 +24,11 @@ export interface ProductStats {
 @Injectable({ providedIn: 'root' })
 export class ProductService {
   private http = inject(HttpClient);
-  private readonly API_URL = 'http://localhost:8080/api/products';
+
+  // CHANGED: all three addresses used to be written out as 'http://localhost:8080/...'. They now
+  // follow API_BASE_URL, so changing it once (for deployment) moves every call.
+  private readonly API_URL = `${API_BASE_URL}/api/products`;
+  private readonly ADMIN_URL = `${API_BASE_URL}/api/admin/products`;
 
   /**
    * Fetches products using Backend's Unified Filter Logic
@@ -147,13 +92,11 @@ export class ProductService {
   uploadImage(file: File): Observable<ApiResponse<{ imageUrl: string }>> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<ApiResponse<{ imageUrl: string }>>(
-      'http://localhost:8080/api/admin/products/upload-image',
-      formData
-    );
-  }
-  getStats(): Observable<ApiResponse<ProductStats>> {
-    return this.http.get<ApiResponse<ProductStats>>('http://localhost:8080/api/admin/products/stats');
+    return this.http.post<ApiResponse<{ imageUrl: string }>>(`${this.ADMIN_URL}/upload-image`, formData);
   }
 
+  /** Catalog-wide stock counts for the admin Products tab. */
+  getStats(): Observable<ApiResponse<ProductStats>> {
+    return this.http.get<ApiResponse<ProductStats>>(`${this.ADMIN_URL}/stats`);
+  }
 }

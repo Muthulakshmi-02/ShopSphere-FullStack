@@ -199,3 +199,25 @@
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
+/* =====================================================================
+   PASTE THIS AT THE VERY END of wishlist-page.css (do not delete anything).
+   ===================================================================== */
+
+/* The "Try again" button reuses the .primary-btn look; as a <button> it needs the browser style removed */
+button.primary-btn {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+/* "Only N left in stock": a warning (orange), not the red used for "Out of stock" */
+.stock-note.low {
+  color: #FFB020;
+}
+
+.add-to-cart-btn:focus-visible,
+.remove-btn:focus-visible {
+  outline: 2px solid #FF3D71;
+  outline-offset: 2px;
+}

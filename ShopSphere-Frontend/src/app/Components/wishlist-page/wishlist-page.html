@@ -4,7 +4,7 @@
   <!-- Not logged in -->
   <div class="empty-state" *ngIf="!isLoggedIn">
     <p>Log in to see items you've saved.</p>
-    <a routerLink="/login" class="primary-btn">Log In</a>
+    <a routerLink="/login" [queryParams]="{ returnUrl: '/wishlist' }" class="primary-btn">Log In</a>
   </div>
 
   <!-- Loading skeleton -->
@@ -12,8 +12,14 @@
     <div class="skeleton-card" *ngFor="let i of [1,2,3,4]"></div>
   </div>
 
+  <!-- NEW: a server problem used to look exactly like an empty wishlist -->
+  <div class="empty-state" *ngIf="!loading() && isLoggedIn && loadError()">
+    <p>We couldn't load your wishlist. Please try again.</p>
+    <button type="button" class="primary-btn" (click)="load()">Try again</button>
+  </div>
+
   <!-- Empty wishlist -->
-  <div class="empty-state" *ngIf="!loading() && isLoggedIn && items().length === 0">
+  <div class="empty-state" *ngIf="!loading() && isLoggedIn && !loadError() && items().length === 0">
     <p>You haven't saved anything yet.</p>
     <a routerLink="/products" class="primary-btn">Browse Products</a>
   </div>
@@ -22,12 +28,8 @@
   <div class="wishlist-grid" *ngIf="!loading() && items().length > 0">
     <div class="wishlist-card" *ngFor="let item of items()">
       <a [routerLink]="['/products', item.product.productId]" class="card-image-link">
-        <img
-          [src]="productImageUrl(item.product.imageUrl)"
-          [alt]="item.product.name"
-          loading="lazy"
-          decoding="async"
-        />
+        <img [src]="productImageUrl(item.product.imageUrl)" [alt]="item.product.name" loading="lazy"
+          decoding="async" />
         <span class="discount-badge" *ngIf="item.product.discountPercentage">
           -{{ item.product.discountPercentage }}%
         </span>
@@ -38,34 +40,35 @@
           {{ item.product.name }}
         </a>
 
+        <!-- CHANGED: "INR" is written out. A bare "| currency" depends on the app-wide default and
+             shows "$" wherever that is not set; every other page already names INR. -->
         <div class="price-row">
           <ng-container *ngIf="!item.product.discountPercentage">
-            <span class="final-price">{{ item.product.price | currency }}</span>
+            <span class="final-price">{{ item.product.price | currency:'INR':'symbol':'1.2-2' }}</span>
           </ng-container>
           <ng-container *ngIf="item.product.discountPercentage">
-            <span class="original-price">{{ item.product.price | currency }}</span>
-            <span class="final-price">{{ discountedPrice(item.product) | currency }}</span>
+            <span class="original-price">{{ item.product.price | currency:'INR':'symbol':'1.2-2' }}</span>
+            <span class="final-price">{{ discountedPrice(item.product) | currency:'INR':'symbol':'1.2-2' }}</span>
           </ng-container>
         </div>
 
         <p class="stock-note" *ngIf="item.product.stock === 0">Out of stock</p>
+        <!-- NEW: the same urgency note the shop page shows -->
+        <p class="stock-note low" *ngIf="item.product.stock > 0 && item.product.stock <= 5">
+          Only {{ item.product.stock }} left in stock
+        </p>
 
         <div class="card-actions">
-          <button
-            class="add-to-cart-btn"
-            [disabled]="item.product.stock === 0"
-            (click)="addToCart(item.product)"
-          >
-            {{ item.product.stock === 0 ? 'Out of Stock' : 'Add to Cart' }}
+          <button class="add-to-cart-btn" [disabled]="item.product.stock === 0" (click)="addToCart(item.product)">
+            <!-- A product with options cannot be added from here, so the button says where it goes -->
+            {{ item.product.stock === 0 ? 'Out of Stock'
+            : (item.product.variants && item.product.variants.length > 0 ? 'Choose options' : 'Add to Cart') }}
           </button>
-          <button
-            class="remove-btn"
-            [disabled]="removingId() === item.product.productId"
-            (click)="remove(item)"
-            aria-label="Remove from wishlist"
-          >
+          <button class="remove-btn" [disabled]="removingId() === item.product.productId" (click)="remove(item)"
+            aria-label="Remove from wishlist">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 7h12v13a1 1 0 01-1 1H7a1 1 0 01-1-1V7zm3-3V3a1 1 0 011-1h4a1 1 0 011 1v1h4a1 1 0 010 2H4a1 1 0 010-2h4z"/>
+              <path
+                d="M6 7h12v13a1 1 0 01-1 1H7a1 1 0 01-1-1V7zm3-3V3a1 1 0 011-1h4a1 1 0 011 1v1h4a1 1 0 010 2H4a1 1 0 010-2h4z" />
             </svg>
           </button>
         </div>

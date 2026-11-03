@@ -17,7 +17,8 @@
       </p>
 
       <div class="hero-actions">
-        <a href="#product-grid" class="hero-cta">Shop Collections</a>
+        <!-- CHANGED: scrolls on this page instead of following a "#" link to the site root -->
+        <a href="#product-grid" class="hero-cta" (click)="scrollToGrid($event)">Shop Collections</a>
         <div class="hero-highlights">
           <span>✓ Trusted Products</span>
           <span>✓ Secure Payments</span>
@@ -26,12 +27,12 @@
       </div>
     </div>
 
-    <!-- Floating Card positioned neatly inside -->
+    <!-- CHANGED: these were plain boxes that slid on hover but did nothing. Now they open the category. -->
     <div class="hero-floating-card">
       <div class="floating-label">Trending Now</div>
-      <div class="floating-item">🔥 Electronics</div>
-      <div class="floating-item">💄 Beauty</div>
-      <div class="floating-item">🧸 Toys</div>
+      <button type="button" class="floating-item" (click)="selectCategoryByName('Electronics')">🔥 Electronics</button>
+      <button type="button" class="floating-item" (click)="selectCategoryByName('Beauty')">💄 Beauty</button>
+      <button type="button" class="floating-item" (click)="selectCategoryByName('Toys')">🧸 Toys</button>
     </div>
   </section>
 
@@ -43,21 +44,18 @@
         <circle cx="11" cy="11" r="8"></circle>
         <path d="m21 21-4.35-4.35"></path>
       </svg>
-      <!-- Bound to searchInput (what is typed right now). It used to be bound to the applied
-           keyword, which could erase the last letters you typed once the delayed search ran. -->
-      <input type="text" [value]="searchInput()" (input)="onSearchInput($event)" placeholder="Search for greatness..."
+      <!-- CHANGED: "Search products..." is clearer than "Search for greatness..." -->
+      <input type="search" [value]="searchInput()" (input)="onSearchInput($event)" placeholder="Search products..."
         aria-label="Search products" class="search-input" />
     </div>
 
     <div class="results-count glass-card">
       <span>Showing</span>
       <strong>{{ totalProducts() }}</strong>
-      <span>products</span>
+      <span>{{ totalProducts() === 1 ? 'product' : 'products' }}</span>
     </div>
 
     <div class="sort-wrapper glass-card">
-      <!-- [selected] on each option: [value] on the <select> is applied BEFORE the options exist,
-           so a sort chosen via the URL (?sort=name,desc) showed the wrong label. -->
       <select (change)="onSortChangeSafe($event)" class="sort-select" aria-label="Sort products">
         <option *ngFor="let opt of sortOptions" [value]="opt.value" [selected]="opt.value === selectedSort()">
           {{ opt.label }}
@@ -76,7 +74,6 @@
       </div>
 
       <div class="filter-group">
-        <!-- "active" was hard-coded here, so All Collections stayed highlighted whatever you picked -->
         <button class="filter-link" [class.active]="selectedCategory() === null" (click)="selectCategory(null)">
           <span>All Collections</span>
           <div class="filter-indicator"></div>
@@ -85,7 +82,6 @@
           [class.active]="selectedCategory() === cat.categoryId" (click)="selectCategory(cat.categoryId)">
           <div class="category-row">
             <span>{{ cat.name | titlecase }}</span>
-            <!-- Real count from the server (same number the Categories page shows) -->
             <span class="category-count" [class.zero]="(cat.productCount ?? 0) === 0">
               {{ cat.productCount ?? 0 }}
             </span>
@@ -105,7 +101,6 @@
 
     <!-- Main Product Grid -->
     <main class="product-grid-container">
-      <!-- Loading Bar -->
       @if (loading()) {
       <div class="loader-container">
         <div class="loader-bar"></div>
@@ -113,12 +108,15 @@
       </div>
       }
 
-      <!-- Product Grid -->
       @if (products().length > 0) {
       <div class="product-grid">
         <article class="product-card glass-card" *ngFor="let p of products(); trackBy: trackByProductId">
           <div class="image-container">
-            <img [src]="productImageUrl(p.imageUrl)" [alt]="p.name" class="product-img" loading="lazy" />
+            <!-- CHANGED: the picture is now a link to the product page. The card looked clickable
+                 (pointer cursor, hover lift) but only the small product name was. -->
+            <a class="image-link" [routerLink]="['/products', p.productId]" [attr.aria-label]="'View ' + p.name">
+              <img [src]="productImageUrl(p.imageUrl)" [alt]="p.name" class="product-img" loading="lazy" />
+            </a>
 
             <span class="discount-badge" *ngIf="p.discountPercentage">
               -{{ p.discountPercentage }}%
@@ -137,7 +135,7 @@
 
           <div class="product-info">
             <span class="category-tag">
-              {{ p.categoryName }}
+              {{ p.categoryName | titlecase }}
             </span>
             <h2 class="product-name">
               <a [routerLink]="['/products', p.productId]">{{ p.name }}</a>
@@ -192,9 +190,7 @@
         </article>
       </div>
 
-      <!-- The "Recently Viewed" section was removed: nothing ever filled it, so it never appeared. -->
-
-      <!-- Modern Pagination -->
+      <!-- CHANGED: 1 2 3 … 12 instead of one button per page -->
       @if (totalPages() > 1) {
       <footer class="pagination glass-card">
         <button class="page-btn" (click)="goPrevPage()" [disabled]="currentPage() === 0">
@@ -204,10 +200,13 @@
           Previous
         </button>
 
-        <button *ngFor="let n of pageNumbers()" class="page-btn" [class.active]="currentPage() === n"
-          (click)="goToPage(n)">
-          {{ n + 1 }}
-        </button>
+        <ng-container *ngFor="let n of pageItems()">
+          <button *ngIf="n !== '…'" class="page-btn" [class.active]="currentPage() === n"
+            (click)="goToPage($any(n))">
+            {{ $any(n) + 1 }}
+          </button>
+          <span *ngIf="n === '…'" class="page-gap">…</span>
+        </ng-container>
 
         <button class="page-btn" (click)="goNextPage()" [disabled]="currentPage() === totalPages() - 1">
           Next
