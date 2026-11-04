@@ -35,17 +35,18 @@ export class App implements OnInit {
   private router = inject(Router);
 
   // The live sales ticker is a storefront device. Hidden on admin screens, on login/register
-  // (nothing to browse yet) and now also on the cart/checkout pages, where a scrolling
+  // (nothing to browse yet) and on the cart/checkout pages, where a scrolling
   // "someone just bought..." bar only distracts from paying.
-  private readonly HIDDEN_ON = ['/admindashboard', '/login', '/register', '/checkout', '/order-success'];
+  // (One list only: declaring it twice is a compile error.)
+  private readonly HIDDEN_ON = ['/admindashboard', '/login', '/register', '/cart', '/checkout', '/order-success'];
   showTicker = signal(true);
 
   isAdminRoute = signal(false);
 
   constructor() {
     // Keeps the wishlist hearts correct on EVERY page for a logged-in customer: on app start
-    // (page refresh) and right after login. Before, hearts were only loaded by the shop page, so
-    // opening a product page directly showed an empty heart for a wishlisted product.
+    // (page refresh) and right after login. It also clears them when the user logs out or the
+    // session expires.
     effect(() => {
       const isCustomer = this.authService.isLoggedIn() && !this.authService.isAdmin();
       untracked(() => {
@@ -59,9 +60,8 @@ export class App implements OnInit {
   }
 
   ngOnInit() {
-    // The old "if (isLoggedIn) this.cartService.loadCart();" was removed: it never subscribed to
-    // the request, so it did nothing at all. The cart is loaded in AuthService.login() and, after a
-    // page refresh, in Header.ngOnInit().
+    // The cart is loaded by AuthService: right after login, and again when a saved session is
+    // restored after a page refresh.
     this.updateTickerVisibility(this.router.url);
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
