@@ -4,6 +4,7 @@ import com.example.MyProject.Models.Product;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -16,38 +17,57 @@ import java.util.Optional;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    // --- Storefront search: name + category + price range, on the price the customer
-    //     actually pays (effectivePrice = after discount / cheapest variant). ---
-    Page<Product> findByNameContainingIgnoreCaseAndCategory_CategoryIdAndEffectivePriceBetween(
-            String name, Long categoryId, Double min, Double max, Pageable pageable);
+        // --- Storefront search: name + category + price range, on the price the
+        // customer
+        // actually pays (effectivePrice = after discount / cheapest variant). ---
+        //
+        // CHANGED: @EntityGraph loads each product's category in the SAME query as the
+        // page. Before, the
+        // page of 12 products ran one extra query per product just to read the category
+        // name.
+        // (The variants are loaded in batches instead, see @BatchSize on
+        // Product.variants: joining a
+        // collection here would make the database paginate in memory.)
+        @EntityGraph(attributePaths = { "category" })
+        Page<Product> findByNameContainingIgnoreCaseAndCategory_CategoryIdAndEffectivePriceBetween(
+                        String name, Long categoryId, Double min, Double max, Pageable pageable);
 
-    Page<Product> findByNameContainingIgnoreCaseAndEffectivePriceBetween(
-            String name, Double min, Double max, Pageable pageable);
+        @EntityGraph(attributePaths = { "category" })
+        Page<Product> findByNameContainingIgnoreCaseAndEffectivePriceBetween(
+                        String name, Double min, Double max, Pageable pageable);
 
-    // Old versions (filtered by the ORIGINAL price). No longer used by the storefront.
-    Page<Product> findByNameContainingIgnoreCaseAndCategory_CategoryIdAndPriceBetween(
-            String name, Long categoryId, Double min, Double max, Pageable pageable);
+        // Old versions (filtered by the ORIGINAL price). No longer used by the
+        // storefront.
+        // Search the project for "PriceBetween"; if nothing else calls these two, you
+        // can delete them.
+        Page<Product> findByNameContainingIgnoreCaseAndCategory_CategoryIdAndPriceBetween(
+                        String name, Long categoryId, Double min, Double max, Pageable pageable);
 
-    Page<Product> findByNameContainingIgnoreCaseAndPriceBetween(
-            String name, Double min, Double max, Pageable pageable);
+        Page<Product> findByNameContainingIgnoreCaseAndPriceBetween(
+                        String name, Double min, Double max, Pageable pageable);
 
-    // Used once at startup to fill in effectivePrice for products created before it existed.
-    List<Product> findByEffectivePriceIsNull();
+        // Used once at startup to fill in effectivePrice for products created before it
+        // existed.
+        List<Product> findByEffectivePriceIsNull();
 
-    boolean existsByName(String name);
+        boolean existsByName(String name);
 
-    long countByCategory_CategoryId(Long categoryId);
-     @Query("select p.category.categoryId, count(p) from Product p group by p.category.categoryId")
-    List<Object[]> countProductsPerCategory();
+        long countByCategory_CategoryId(Long categoryId);
 
-    /** Row lock used during checkout so concurrent orders can't oversell low-stock products. */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from Product p where p.productId = :productId")
-    Optional<Product> findByIdForUpdate(@Param("productId") Long productId);
-    
-    long countByStockGreaterThan(Integer stock);
- 
-    long countByStockLessThanEqual(Integer stock);
- 
-    long countByStockBetween(Integer min, Integer max);
+        @Query("select p.category.categoryId, count(p) from Product p group by p.category.categoryId")
+        List<Object[]> countProductsPerCategory();
+
+        /**
+         * Row lock used during checkout so concurrent orders can't oversell low-stock
+         * products.
+         */
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("select p from Product p where p.productId = :productId")
+        Optional<Product> findByIdForUpdate(@Param("productId") Long productId);
+
+        long countByStockGreaterThan(Integer stock);
+
+        long countByStockLessThanEqual(Integer stock);
+
+        long countByStockBetween(Integer min, Integer max);
 }

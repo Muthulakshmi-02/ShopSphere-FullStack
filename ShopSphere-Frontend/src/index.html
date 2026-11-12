@@ -3,14 +3,19 @@
 
 <head>
   <meta charset="utf-8">
-  <!-- was the default "NewProject" -->
   <title>ShopSphere</title>
   <meta name="description" content="ShopSphere: electronics, beauty, toys and more with secure checkout.">
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0B0F1A">
-  <!-- Content-Security-Policy: UNCHANGED. Before you deploy, replace the localhost entries in
-       connect-src with your real API address, or every request will be blocked. -->
+  <!-- Content-Security-Policy.
+       CHANGED: connect-src now also allows https://api.postalpincode.in. The checkout page's PIN code
+       lookup calls it; without this entry the browser blocks the request and the city/state never
+       autofill (silently, because that lookup never blocks checkout).
+       BEFORE YOU DEPLOY:
+         1. Replace the localhost entries in connect-src with your real API address.
+         2. Try removing 'unsafe-eval' from script-src on the production build; it is normally not needed.
+         3. Consider replacing "http:" in img-src with only the image hosts you really use. -->
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; 
                script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com; 
@@ -18,12 +23,11 @@
                font-src 'self' https://fonts.gstatic.com; 
                img-src 'self' data: blob: http: https:; 
                frame-src https://api.razorpay.com https://checkout.razorpay.com;
-               connect-src 'self' http://localhost:4500 ws://localhost:4500 http://localhost:8080 https://api.razorpay.com https://lumberjack.razorpay.com;">
+               connect-src 'self' http://localhost:4500 ws://localhost:4500 http://localhost:8080 https://api.razorpay.com https://lumberjack.razorpay.com https://api.postalpincode.in;">
 
 
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <!-- Razorpay Checkout: now "async". It is only used when someone pays, but a normal <script> in the
-       head makes EVERY page wait for it to download before it can start rendering. -->
+  <!-- Razorpay Checkout: "async", so no page waits for it before it can start rendering. -->
   <script async src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
