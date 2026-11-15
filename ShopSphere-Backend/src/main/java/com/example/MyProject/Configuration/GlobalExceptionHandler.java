@@ -2,6 +2,7 @@ package com.example.MyProject.Configuration;
 
 import com.example.MyProject.Exception.CartBusinessException;
 import com.example.MyProject.Exception.ResourceNotFoundException;
+import com.example.MyProject.Exception.TooManyRequestsException;
 import com.example.MyProject.User.Dto.ApiResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -44,21 +45,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    // NEW: too many wrong passwords / too many reset requests -> 429 with a readable message.
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ApiResponse<Object>> handleTooManyRequests(TooManyRequestsException ex) {
+        return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
+    }
+
     // State conflicts (e.g. paying for an already-paid order) -> 409
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalState(IllegalStateException ex) {
         return build(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    // NEW: PaymentService throws IllegalArgumentException with user-friendly messages
-    // ("Order not found...", "Could not start payment right now..."). These used to fall
-    // through to the catch-all and become a generic 500.
+    // PaymentService used to throw IllegalArgumentException with user-friendly messages. Kept so
+    // any remaining code that still does so keeps working.
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    // NEW: unique-constraint races (two simultaneous registrations, deleting something
+    // Unique-constraint races (two simultaneous registrations, deleting something
     // still referenced...) -> 409 instead of a raw 500.
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
@@ -108,7 +114,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildRaw(HttpStatus.BAD_REQUEST, "The request body is malformed or contains an invalid value.");
     }
 
-    // NEW: everything ResponseEntityExceptionHandler handles itself (405 wrong method, 415,
+    // Everything ResponseEntityExceptionHandler handles itself (405 wrong method, 415,
     // missing parameter, bad path variable such as /products/abc, unknown URL...) used to
     // return Spring's ProblemDetail, which has "detail" but no "message", so the frontend
     // lost the text. This puts all of them into the ApiResponse shape too.
