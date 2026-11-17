@@ -26,12 +26,19 @@ public class AdminOrderController {
         return ResponseEntity.ok(new ApiResponse<>(true, allOrders, "All orders fetched successfully"));
     }
 
-    // Which changes are allowed is decided in OrderService.updateOrderStatus (see the patch file).
+    // Which changes are allowed is decided in OrderService.updateOrderStatus.
     @PutMapping("/{orderId}/status")
     public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
             @PathVariable Long orderId, @RequestParam OrderStatus status) {
 
         OrderResponse response = orderService.updateOrderStatus(orderId, status);
         return ResponseEntity.ok(new ApiResponse<>(true, response, "Order status updated to " + status));
+    }
+
+    // NEW: sends the money back for a cancelled order that was paid online (full refund through Razorpay).
+    @PostMapping("/{orderId}/refund")
+    public ResponseEntity<ApiResponse<OrderResponse>> refund(@PathVariable Long orderId) {
+        OrderResponse response = orderService.refundOrder(orderId);
+        return ResponseEntity.ok(new ApiResponse<>(true, response, "Refund issued for order #" + orderId));
     }
 }

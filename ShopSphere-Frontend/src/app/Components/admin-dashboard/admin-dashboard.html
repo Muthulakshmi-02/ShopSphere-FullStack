@@ -285,6 +285,7 @@
               <option value="PENDING">Payment pending</option>
               <option value="PAID">Paid</option>
               <option value="REFUND_PENDING">Refund pending</option>
+              <option value="REFUNDED">Refunded</option>
             </select>
           </div>
 
@@ -336,9 +337,11 @@
 
                   <td>
                     <span class="status-badge" [attr.data-status]="o.paymentStatus">{{ paymentLabel(o) }}</span>
-                    <div class="refund-hint" *ngIf="o.paymentStatus === 'REFUND_PENDING'">
-                      Refund this payment in the Razorpay dashboard
-                    </div>
+                    <!-- CHANGED: was only a hint to refund by hand in the Razorpay dashboard. -->
+                    <button type="button" class="refund-btn" *ngIf="o.paymentStatus === 'REFUND_PENDING'"
+                      [disabled]="refundingOrderId() === o.orderId" (click)="refundOrder(o)">
+                      {{ refundingOrderId() === o.orderId ? 'Refunding…' : 'Refund ₹' + (o.totalAmount | number:'1.2-2') }}
+                    </button>
                   </td>
                   <td>
                     <!-- Only the current status and its legal next steps are offered.

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { OrderRequest, OrderResponse, PaymentRequest } from '../Models/Order.model';
+import { OrderRequest, PaymentRequest } from '../Models/Order.model';
 import { API_BASE_URL } from '../shared/api.config';
 
 // withCredentials: true was removed from every call below. It only matters for COOKIE logins;
@@ -64,5 +64,13 @@ export class OrderService {
       `${this.adminApiUrl}/${orderId}/status?status=${encodeURIComponent(status)}`,
       {}
     );
+  }
+
+  /**
+   * NEW - Admin: sends the money back for a cancelled order that was paid online (full refund through
+   * Razorpay). Maps to: POST /api/admin/orders/{orderId}/refund
+   */
+  refundOrder(orderId: number): Observable<any> {
+    return this.http.post<any>(`${this.adminApiUrl}/${orderId}/refund`, {});
   }
 }

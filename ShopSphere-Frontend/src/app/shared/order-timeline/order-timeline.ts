@@ -172,9 +172,10 @@ export class OrderTimeline {
     return this.labelFor(STEPS[this.currentIndex], this.currentIndex);
   }
 
-  get cancelledText(): string {
-    return this.paymentStatus === 'REFUND_PENDING'
-      ? 'This order was cancelled. Your refund is being processed.'
-      : 'This order was cancelled';
-  }
+get cancelledText(): string {
+  if (this.paymentStatus === 'REFUNDED') return 'This order was cancelled. Your payment was refunded.';
+  return this.paymentStatus === 'REFUND_PENDING'
+    ? 'This order was cancelled. Your refund is being processed.'
+    : 'This order was cancelled';
+}
 }

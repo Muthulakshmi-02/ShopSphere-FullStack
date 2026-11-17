@@ -1300,6 +1300,7 @@ textarea.input {
     font-size: 0.78rem;
     color: #94a3b8;
 }
+
 /* =====================================================================
    PASTE THIS AT THE VERY END of admin-dashboard.css (do not delete anything).
    Later rules override earlier ones, so order matters: keep it last.
@@ -1386,4 +1387,43 @@ textarea.input {
 /* --- Small contrast fix: the "MANAGEMENT" label was hard to read on the dark sidebar --- */
 .sidebar-section-title {
     color: #94a3b8;
+}
+
+/* =====================================================================
+   PASTE THIS AT THE VERY END of admin-dashboard.css (do not delete anything).
+   ===================================================================== */
+
+/* The "Refund ₹..." button shown under a REFUND_PENDING payment */
+.refund-btn {
+    margin-top: 6px;
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 176, 32, 0.5);
+    background: rgba(255, 176, 32, 0.12);
+    color: #FFB020;
+    font-weight: 700;
+    font-size: 0.78rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+
+.refund-btn:hover:not(:disabled) {
+    background: rgba(255, 176, 32, 0.25);
+}
+
+.refund-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.refund-btn:focus-visible {
+    outline: 2px solid #FFB020;
+    outline-offset: 2px;
+}
+
+/* A refunded payment: calm green */
+.status-badge[data-status="REFUNDED"] {
+    background: rgba(46, 204, 113, 0.12);
+    color: #2ECC71;
 }

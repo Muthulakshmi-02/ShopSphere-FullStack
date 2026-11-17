@@ -92,6 +92,17 @@ export class AuthService {
     return this.http.post<ApiResponse<UserResponseDTO>>(`${this.API_URL}/register`, userData);
   }
 
+  // NEW: "forgot password". The server answers the same way whether or not the email has an account,
+  // so the page must not claim either; it just shows the message the server sends back.
+  forgotPassword(email: string): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${this.API_URL}/forgot-password`, { email });
+  }
+
+  // NEW: sets the new password using the code from the emailed link.
+  resetPassword(token: string, newPassword: string): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${this.API_URL}/reset-password`, { token, newPassword });
+  }
+
   logout(): void {
     this.clearSession();
     this.router.navigate(['/login']).then(() => {

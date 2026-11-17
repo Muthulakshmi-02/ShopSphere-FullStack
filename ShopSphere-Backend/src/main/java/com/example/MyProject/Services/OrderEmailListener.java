@@ -36,6 +36,7 @@ public class OrderEmailListener {
                 case CONFIRMATION -> emailService.sendOrderConfirmation(order);
                 case STATUS_UPDATE -> emailService.sendOrderStatusUpdate(order);
                 case CANCELLED -> emailService.sendOrderCancelled(order);
+                case REFUNDED -> emailService.sendOrderRefunded(order);   // NEW
             }
         } catch (Exception e) {
             log.warn("Order email '{}' for order {} failed: {}", event.type(), event.orderId(), e.getMessage());

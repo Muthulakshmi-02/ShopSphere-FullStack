@@ -74,6 +74,7 @@
 //     }
 // }
 
+
 package com.example.MyProject.Services;
 
 import com.razorpay.RazorpayClient;
@@ -111,8 +112,7 @@ public class RazorpayService {
 
     /** Creates a Razorpay order for an amount in Rupees (converted to paise). */
     public String createOrder(BigDecimal amountInRupees, String receipt) throws RazorpayException {
-        // CHANGED: longValueExact() fails loudly instead of silently truncating a bad
-        // amount.
+        // CHANGED: longValueExact() fails loudly instead of silently truncating a bad amount.
         long amountInPaise = amountInRupees
                 .setScale(2, RoundingMode.HALF_UP)
                 .movePointRight(2)
@@ -130,8 +130,7 @@ public class RazorpayService {
 
     /** Verifies the HMAC signature returned to the browser by Razorpay Checkout. */
     public boolean verifySignature(String razorpayOrderId, String razorpayPaymentId, String razorpaySignature) {
-        // CHANGED: a missing value used to make JSONObject throw a runtime exception (a
-        // 500).
+        // CHANGED: a missing value used to make JSONObject throw a runtime exception (a 500).
         // Now it is simply "not verified".
         if (isBlank(razorpayOrderId) || isBlank(razorpayPaymentId) || isBlank(razorpaySignature)) {
             return false;
@@ -147,10 +146,7 @@ public class RazorpayService {
         }
     }
 
-    /**
-     * Verifies the X-Razorpay-Signature header of a webhook against the RAW request
-     * body.
-     */
+    /** Verifies the X-Razorpay-Signature header of a webhook against the RAW request body. */
     public boolean verifyWebhookSignature(String rawBody, String signature) {
         if (webhookSecret == null || webhookSecret.isBlank() || isBlank(signature)) {
             return false;
@@ -160,6 +156,20 @@ public class RazorpayService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /**
+     * Refunds a captured payment (the whole amount, in paise) and returns Razorpay's refund id.
+     * "normal" speed: the money reaches the customer in roughly 5 to 7 business days.
+     */
+    public String refundPayment(String paymentId, long amountInPaise, String receipt) throws RazorpayException {
+        JSONObject request = new JSONObject();
+        request.put("amount", amountInPaise);
+        request.put("speed", "normal");
+        request.put("receipt", receipt);
+
+        com.razorpay.Refund refund = client.payments.refund(paymentId, request);
+        return refund.get("id");
     }
 
     public String getPublicKeyId() {

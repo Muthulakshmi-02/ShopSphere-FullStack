@@ -207,3 +207,63 @@ button[type="submit"]:disabled {
   border-left: 4px solid #3DE8FF;
   font-weight: 500;
 }
+/* =====================================================================
+   PASTE THIS AT THE VERY END of login.css (do not delete anything).
+   The forgot-password and reset-password pages load login.css as well, so the look stays the same.
+   ===================================================================== */
+
+/* "Forgot password?" link under the password field */
+.forgot-row {
+  text-align: right;
+  margin: -0.5rem 0 1rem;
+}
+
+.forgot-row a {
+  color: #8B92A8;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.forgot-row a:hover {
+  color: #FF3D71;
+  text-decoration: underline;
+}
+
+/* Green box: "we've sent a link" */
+.alert-success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  padding: 0.875rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #10b981;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Small grey help text under a field */
+.field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #8B92A8;
+}
+
+/* Plain paragraph inside the card */
+.auth-note {
+  color: #8B92A8;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+.auth-note a {
+  color: #FF3D71;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-note a:hover {
+  text-decoration: underline;
+}

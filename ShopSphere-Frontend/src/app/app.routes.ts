@@ -15,21 +15,26 @@ import { PrivacyPolicy } from './Components/privacy-policy/privacy-policy';
 import { WishlistPage } from './Components/wishlist-page/wishlist-page';
 import { AdminLayout } from './layouts/admin-layout/admin-layout';
 import { CategoriesPage } from './Components/categories-page/categories-page';
+// NEW
+import { ForgotPassword } from './Components/login/ForgetPassword';
+import { ResetPassword } from './Components/login/ResetPassword';
 
 export const routes: Routes = [
   // Browsing is public (GET /api/products/** is permitAll on the backend).
   { path: '', redirectTo: 'products', pathMatch: 'full' },
   { path: 'login', component: Login },
   { path: 'register', component: Register },
+  // NEW: public on purpose. A customer who forgot the password is, by definition, not signed in.
+  { path: 'forgot-password', component: ForgotPassword },
+  { path: 'reset-password', component: ResetPassword },
   { path: 'products', component: ProductDashboard },
   { path: 'products/:id', component: ProductDetail },
   { path: 'terms', component: TermsOfService },
   { path: 'privacy', component: PrivacyPolicy },
   { path: 'categories', component: CategoriesPage },
 
-  // Pages that only make sense when logged in. authGuard (it already existed but was never
-  // used) sends guests to /login and returns them here afterwards. Before, a guest could open
-  // these pages and just got a wall of failed requests.
+  // Pages that only make sense when logged in. authGuard sends guests to /login and returns them
+  // here afterwards.
   { path: 'cart', component: Cart, canActivate: [authGuard] },
   { path: 'wishlist', component: WishlistPage, canActivate: [authGuard] },
   { path: 'checkout', component: CheckoutPage, canActivate: [authGuard] },

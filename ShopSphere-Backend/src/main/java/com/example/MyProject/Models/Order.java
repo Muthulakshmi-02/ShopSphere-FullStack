@@ -1,4 +1,3 @@
-
 package com.example.MyProject.Models;
 import com.example.MyProject.Enum.OrderStatus;
 import com.example.MyProject.Enum.PaymentStatus;
@@ -72,6 +71,15 @@ public class Order {
 
     @Column(name = "razorpay_payment_id")
     private String razorpayPaymentId;
+
+    // NEW: set when an admin refunds a cancelled, paid order (see RefundService).
+    // refundId is Razorpay's id for the refund; it can be null if the money had already been
+    // returned from the Razorpay dashboard before the admin pressed the button.
+    @Column(name = "refund_id")
+    private String refundId;
+
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems;

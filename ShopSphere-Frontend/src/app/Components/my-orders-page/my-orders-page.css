@@ -287,3 +287,20 @@
     background: rgba(255, 176, 32, 0.08);
     border: 1px solid rgba(255, 176, 32, 0.25);
 }
+
+/* =====================================================================
+   PASTE THIS AT THE VERY END of my-orders-page.css (do not delete anything).
+   ===================================================================== */
+
+/* A refunded payment: green, like "Paid" */
+.status-badge[data-status="REFUNDED"] {
+    background: rgba(46, 204, 113, 0.15);
+    color: #2ECC71;
+}
+
+/* The note after a refund has been issued (the amber "refund pending" note keeps its own look) */
+.refund-note.done {
+    color: #2ECC71;
+    background: rgba(46, 204, 113, 0.08);
+    border-color: rgba(46, 204, 113, 0.25);
+}

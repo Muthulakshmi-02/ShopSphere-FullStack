@@ -38,7 +38,10 @@ export class App implements OnInit {
   // (nothing to browse yet) and on the cart/checkout pages, where a scrolling
   // "someone just bought..." bar only distracts from paying.
   // (One list only: declaring it twice is a compile error.)
-  private readonly HIDDEN_ON = ['/admindashboard', '/login', '/register', '/cart', '/checkout', '/order-success'];
+  private readonly HIDDEN_ON = [
+    '/admindashboard', '/login', '/register', '/forgot-password', '/reset-password',
+    '/cart', '/checkout', '/order-success'
+  ];
   showTicker = signal(true);
 
   isAdminRoute = signal(false);
