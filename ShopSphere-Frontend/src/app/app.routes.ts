@@ -1,51 +1,42 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from './Guards/admin-guard';
 import { authGuard } from './Guards/auth-guard';
-import { AdminDashboard } from './Components/admin-dashboard/admin-dashboard';
-import { Login } from './Components/login/login';
-import { ProductDashboard } from './Components/product-dashboard/product-dashboard';
-import { Register } from './Components/register/register';
-import { Cart } from './Components/cart/cart';
-import { CheckoutPage } from './Components/checkout/checkout';
-import { OrderSuccess } from './Components/order-succes/order-succes';
-import { MyOrdersPage } from './Components/my-orders-page/my-orders-page';
-import { ProductDetail } from './Components/product-detail/product-detail';
-import { TermsOfService } from './Components/terms-of-service/terms-of-service';
-import { PrivacyPolicy } from './Components/privacy-policy/privacy-policy';
-import { WishlistPage } from './Components/wishlist-page/wishlist-page';
-import { AdminLayout } from './layouts/admin-layout/admin-layout';
-import { CategoriesPage } from './Components/categories-page/categories-page';
-// NEW
-import { ForgotPassword } from './Components/login/ForgetPassword';
-import { ResetPassword } from './Components/login/ResetPassword';
 
 export const routes: Routes = [
   // Browsing is public (GET /api/products/** is permitAll on the backend).
   { path: '', redirectTo: 'products', pathMatch: 'full' },
-  { path: 'login', component: Login },
-  { path: 'register', component: Register },
-  // NEW: public on purpose. A customer who forgot the password is, by definition, not signed in.
-  { path: 'forgot-password', component: ForgotPassword },
-  { path: 'reset-password', component: ResetPassword },
-  { path: 'products', component: ProductDashboard },
-  { path: 'products/:id', component: ProductDetail },
-  { path: 'terms', component: TermsOfService },
-  { path: 'privacy', component: PrivacyPolicy },
-  { path: 'categories', component: CategoriesPage },
+
+  // Auth pages — lightweight, load on demand.
+  { path: 'login', loadComponent: () => import('./Components/login/login').then(m => m.Login) },
+  { path: 'register', loadComponent: () => import('./Components/register/register').then(m => m.Register) },
+  { path: 'forgot-password', loadComponent: () => import('./Components/login/ForgetPassword').then(m => m.ForgotPassword) },
+  { path: 'reset-password', loadComponent: () => import('./Components/login/ResetPassword').then(m => m.ResetPassword) },
+
+  // Public catalog pages.
+  { path: 'products', loadComponent: () => import('./Components/product-dashboard/product-dashboard').then(m => m.ProductDashboard) },
+  { path: 'products/:id', loadComponent: () => import('./Components/product-detail/product-detail').then(m => m.ProductDetail) },
+  { path: 'categories', loadComponent: () => import('./Components/categories-page/categories-page').then(m => m.CategoriesPage) },
+
+  // Static / legal pages.
+  { path: 'terms', loadComponent: () => import('./Components/terms-of-service/terms-of-service').then(m => m.TermsOfService) },
+  { path: 'privacy', loadComponent: () => import('./Components/privacy-policy/privacy-policy').then(m => m.PrivacyPolicy) },
 
   // Pages that only make sense when logged in. authGuard sends guests to /login and returns them
   // here afterwards.
-  { path: 'cart', component: Cart, canActivate: [authGuard] },
-  { path: 'wishlist', component: WishlistPage, canActivate: [authGuard] },
-  { path: 'checkout', component: CheckoutPage, canActivate: [authGuard] },
-  { path: 'order-success', component: OrderSuccess, canActivate: [authGuard] },
-  { path: 'my-orders', component: MyOrdersPage, canActivate: [authGuard] },
+  { path: 'cart', loadComponent: () => import('./Components/cart/cart').then(m => m.Cart), canActivate: [authGuard] },
+  { path: 'wishlist', loadComponent: () => import('./Components/wishlist-page/wishlist-page').then(m => m.WishlistPage), canActivate: [authGuard] },
+  { path: 'checkout', loadComponent: () => import('./Components/checkout/checkout').then(m => m.CheckoutPage), canActivate: [authGuard] },
+  { path: 'order-success', loadComponent: () => import('./Components/order-succes/order-succes').then(m => m.OrderSuccess), canActivate: [authGuard] },
+  { path: 'my-orders', loadComponent: () => import('./Components/my-orders-page/my-orders-page').then(m => m.MyOrdersPage), canActivate: [authGuard] },
 
   {
     path: 'admindashboard',
-    component: AdminLayout,
+    loadComponent: () => import('./layouts/admin-layout/admin-layout').then(m => m.AdminLayout),
     canActivate: [adminGuard],
-    children: [{ path: '', component: AdminDashboard }],
+    children: [{
+      path: '',
+      loadComponent: () => import('./Components/admin-dashboard/admin-dashboard').then(m => m.AdminDashboard),
+    }],
   },
 
   // Fallback

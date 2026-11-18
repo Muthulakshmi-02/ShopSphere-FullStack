@@ -70,6 +70,12 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Server-side in-memory caching for product & category reads -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>

@@ -9,6 +9,8 @@ import com.example.MyProject.Repository.CategoryRepository;
 import com.example.MyProject.Repository.ProductRepository;
 import com.example.MyProject.User.Dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
 
+    @Cacheable("categories")
     @Transactional(readOnly = true)
     public ApiResponse<List<CategoryResponse>> getAllCategories() {
         // One grouped query for all counts (not one query per category).
@@ -46,6 +49,7 @@ public class CategoryService {
                 .build();
     }
 
+    @CacheEvict(value = {"categories", "products"}, allEntries = true)
     @Transactional
     public ApiResponse<CategoryResponse> createCategory(CategoryRequest request) {
         String name = request.getName().trim();
@@ -66,6 +70,7 @@ public class CategoryService {
                 .build();
     }
 
+    @CacheEvict(value = {"categories", "products"}, allEntries = true)
     @Transactional
     public ApiResponse<CategoryResponse> updateCategory(Long categoryId, CategoryRequest request) {
         Category category = categoryRepository.findById(categoryId)
@@ -88,6 +93,7 @@ public class CategoryService {
                 .build();
     }
 
+    @CacheEvict(value = {"categories", "products"}, allEntries = true)
     @Transactional
     public ApiResponse<Void> deleteCategory(Long categoryId) {
         Category category = categoryRepository.findById(categoryId)

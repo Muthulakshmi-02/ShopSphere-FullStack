@@ -3,11 +3,13 @@ package com.example.MyProject;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableJpaAuditing
+@EnableCaching
 // Both were missing:
 //  @EnableScheduling - without it the 30-minute job that cancels abandoned card orders (and puts
 //                      their stock back) NEVER runs, so unpaid orders hold stock forever.

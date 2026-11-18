@@ -1,0 +1,22 @@
+# Environment variables & secrets
+.env
+.env.local
+*.secret*
+application-secrets.properties
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Node / Frontend
+**/node_modules/
+**/dist/
+**/.angular/
+
+# Maven / Backend
+**/target/

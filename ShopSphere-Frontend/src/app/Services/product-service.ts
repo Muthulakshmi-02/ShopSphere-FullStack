@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
 import { ApiResponse } from '../Models/User.model';
 import { ProductResponse, ProductRequest } from '../Models/Product.model';
 import { API_BASE_URL } from '../shared/api.config';
@@ -25,14 +25,19 @@ export interface ProductStats {
 export class ProductService {
   private http = inject(HttpClient);
 
-  // CHANGED: all three addresses used to be written out as 'http://localhost:8080/...'. They now
-  // follow API_BASE_URL, so changing it once (for deployment) moves every call.
   private readonly API_URL = `${API_BASE_URL}/api/products`;
   private readonly ADMIN_URL = `${API_BASE_URL}/api/admin/products`;
 
+  // ── In-memory cache for product listing calls ──
+  // Key: serialised query params → Value: cached API response.
+  // Avoids re-fetching the same page when the user navigates back.
+  private listCache = new Map<string, ApiResponse<Page<ProductResponse>>>();
+  // Single-product cache (by ID).
+  private detailCache = new Map<number, ApiResponse<ProductResponse>>();
+
   /**
-   * Fetches products using Backend's Unified Filter Logic
-   * Maps to: @GetMapping in ProductController
+   * Fetches products using Backend's Unified Filter Logic.
+   * Results are cached so navigating back skips a redundant HTTP call.
    */
   getFilteredProducts(
     keyword: string = '',
@@ -60,34 +65,54 @@ export class ProductService {
       params = params.set('categoryId', categoryId.toString());
     }
 
-    return this.http.get<ApiResponse<Page<ProductResponse>>>(this.API_URL, { params });
+    const cacheKey = params.toString();
+    const cached = this.listCache.get(cacheKey);
+    if (cached) {
+      return of(cached);
+    }
+
+    return this.http.get<ApiResponse<Page<ProductResponse>>>(this.API_URL, { params }).pipe(
+      tap(res => this.listCache.set(cacheKey, res))
+    );
   }
 
   /**
-   * Fetches a single product by ID
-   * Maps to: @GetMapping("/{productId}")
+   * Fetches a single product by ID (cached).
    */
   getProductById(productId: number): Observable<ApiResponse<ProductResponse>> {
-    return this.http.get<ApiResponse<ProductResponse>>(`${this.API_URL}/${productId}`);
+    const cached = this.detailCache.get(productId);
+    if (cached) {
+      return of(cached);
+    }
+
+    return this.http.get<ApiResponse<ProductResponse>>(`${this.API_URL}/${productId}`).pipe(
+      tap(res => this.detailCache.set(productId, res))
+    );
   }
 
-  // Admin Methods (Require JWT)
+  // ── Admin Methods (Require JWT) ──
+  // Write operations clear the cache so the next read picks up fresh data.
+
   createProduct(product: ProductRequest): Observable<ApiResponse<ProductResponse>> {
-    return this.http.post<ApiResponse<ProductResponse>>(this.API_URL, product);
+    return this.http.post<ApiResponse<ProductResponse>>(this.API_URL, product).pipe(
+      tap(() => this.clearCache())
+    );
   }
 
   updateProduct(id: number, product: ProductRequest): Observable<ApiResponse<ProductResponse>> {
-    return this.http.put<ApiResponse<ProductResponse>>(`${this.API_URL}/${id}`, product);
+    return this.http.put<ApiResponse<ProductResponse>>(`${this.API_URL}/${id}`, product).pipe(
+      tap(() => this.clearCache())
+    );
   }
 
   deleteProduct(id: number): Observable<ApiResponse<void>> {
-    return this.http.delete<ApiResponse<void>>(`${this.API_URL}/${id}`);
+    return this.http.delete<ApiResponse<void>>(`${this.API_URL}/${id}`).pipe(
+      tap(() => this.clearCache())
+    );
   }
 
   /**
-   * Uploads an actual image file (admin only). Returns the generated
-   * filename to store as the product's imageUrl - the backend serves it
-   * back out at /images/<filename> alongside the original seed images.
+   * Uploads an actual image file (admin only).
    */
   uploadImage(file: File): Observable<ApiResponse<{ imageUrl: string }>> {
     const formData = new FormData();
@@ -98,5 +123,11 @@ export class ProductService {
   /** Catalog-wide stock counts for the admin Products tab. */
   getStats(): Observable<ApiResponse<ProductStats>> {
     return this.http.get<ApiResponse<ProductStats>>(`${this.ADMIN_URL}/stats`);
+  }
+
+  /** Clears all cached data — called after any admin write. */
+  clearCache(): void {
+    this.listCache.clear();
+    this.detailCache.clear();
   }
 }

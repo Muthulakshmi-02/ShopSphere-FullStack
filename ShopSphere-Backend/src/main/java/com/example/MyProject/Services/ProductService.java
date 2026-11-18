@@ -18,6 +18,8 @@ import com.example.MyProject.Repository.WishlistRepository;
 import com.example.MyProject.User.Dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
@@ -44,6 +46,7 @@ public class ProductService {
     private final PricingService pricing;
   
 
+    @Cacheable(value = "products", key = "#keyword + '-' + #categoryId + '-' + #min + '-' + #max + '-' + #pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort")
     @Transactional(readOnly = true)
     public ApiResponse<Page<ProductResponse>> getFilteredProducts(
             String keyword, Long categoryId, Double min, Double max, Pageable pageable) {
@@ -67,6 +70,7 @@ public class ProductService {
                 .build();
     }
 
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     @Transactional
     public ApiResponse<ProductResponse> createProduct(ProductRequest dto) {
         if (productRepository.existsByName(dto.getName())) {
@@ -98,6 +102,7 @@ public class ProductService {
                 .build();
     }
 
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     @Transactional
     public ApiResponse<ProductResponse> updateProduct(Long id, ProductRequest dto) {
         Product product = productRepository.findById(id)
@@ -130,6 +135,7 @@ public class ProductService {
                 .build();
     }
 
+    @Cacheable(value = "product", key = "#productId")
     @Transactional(readOnly = true)
     public ApiResponse<ProductResponse> getProductById(Long productId) {
         return productRepository.findById(productId)
@@ -137,6 +143,7 @@ public class ProductService {
                 .orElse(ApiResponse.<ProductResponse>builder().success(false).message(getMessage("product.notfound")).build());
     }
 
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     @Transactional
     public ApiResponse<Void> deleteProduct(Long id) {
         if (!productRepository.existsById(id)) {

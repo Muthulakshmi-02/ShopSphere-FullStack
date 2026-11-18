@@ -6,6 +6,7 @@ import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { routes } from './app.routes';
 import { authInterceptor } from './Interceptor/authInterceptor';
+import { errorInterceptor } from './Interceptor/errorInterceptor';
 
 // Import locale data for Indian English (INR)
 import { registerLocaleData } from '@angular/common';
@@ -19,7 +20,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(
       withFetch(),
-      withInterceptors([authInterceptor])
+      withInterceptors([authInterceptor, errorInterceptor])
     ),
     // Set default application locale to Indian English
     { provide: LOCALE_ID, useValue: 'en-IN' },
