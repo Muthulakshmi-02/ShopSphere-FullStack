@@ -5,6 +5,7 @@ import com.example.MyProject.Enum.PaymentStatus;
 import com.example.MyProject.Models.*;
 import com.example.MyProject.Order.dto.*;
 import com.example.MyProject.Enum.OrderStatus;
+import com.example.MyProject.Enum.Role;
 import com.example.MyProject.Exception.CartBusinessException;
 import com.example.MyProject.Exception.ResourceNotFoundException;
 import com.example.MyProject.Repository.*;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -48,6 +50,7 @@ public class OrderService {
     private final TransactionTemplate tx;
     // NEW: sends the money back for a cancelled, paid order.
     private final RefundService refundService;
+    private final InvoicePdfService invoicePdfService;
 
     private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
             OrderStatus.PENDING, Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
@@ -224,6 +227,20 @@ public class OrderService {
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] generateInvoicePdf(Long orderId) {
+        User user = getAuthenticatedUser();
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
+
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        if (!isAdmin && (order.getUser() == null || !order.getUser().getUserId().equals(user.getUserId()))) {
+            throw new AccessDeniedException("You do not have permission to access this order invoice.");
+        }
+
+        return invoicePdfService.generateInvoice(order);
     }
 
     @Transactional

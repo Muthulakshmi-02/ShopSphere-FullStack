@@ -29,6 +29,7 @@ export class MyOrdersPage implements OnInit {
   loadError = signal(false);
   cancellingOrderId = signal<number | null>(null);
   payingOrderId = signal<number | null>(null);
+  downloadingInvoiceId = signal<number | null>(null);
 
   // Client-side pagination: one customer's own history is a bounded list.
   readonly pageSize = 5;

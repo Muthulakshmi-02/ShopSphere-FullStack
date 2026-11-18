@@ -40,6 +40,16 @@ export class OrderService {
     return this.http.get<any>(`${this.apiUrl}/recent-activity`);
   }
 
+  /**
+   * Downloads the official PDF Tax Invoice / Receipt for an order.
+   * Maps to: GET /api/orders/{orderId}/invoice
+   */
+  downloadInvoice(orderId: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${orderId}/invoice`, {
+      responseType: 'blob'
+    });
+  }
+
   /** For Admin: all orders. Maps to: GET /api/admin/orders/all */
   getAllOrders(): Observable<any> {
     return this.http.get<any>(`${this.adminApiUrl}/all`);

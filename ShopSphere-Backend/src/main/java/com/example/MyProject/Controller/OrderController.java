@@ -9,7 +9,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -47,6 +49,16 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderResponse>> cancelMyOrder(@PathVariable Long orderId) {
         OrderResponse response = orderService.cancelMyOrder(orderId);
         return ResponseEntity.ok(new ApiResponse<>(true, response, "Order cancelled"));
+    }
+
+    @GetMapping("/{orderId}/invoice")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadInvoice(@PathVariable Long orderId) {
+        byte[] pdf = orderService.generateInvoicePdf(orderId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"invoice-" + orderId + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     // Public: powers the storefront's live ticker. First name + product name only.
