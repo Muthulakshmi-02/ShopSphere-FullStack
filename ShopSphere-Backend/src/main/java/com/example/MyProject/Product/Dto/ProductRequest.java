@@ -40,6 +40,9 @@ public class ProductRequest {
     @Size(max = 500, message = "{product.image.size}")
     private String imageUrl;
 
+    @Builder.Default
+    private java.util.List<String> imageUrls = new java.util.ArrayList<>();
+
     // IGNORED by the server: status is always derived from stock (OUT_OF_STOCK at 0).
     // It used to be @NotNull, which forced clients to send a value that did nothing.
     // To stop selling a product, set its stock to 0.

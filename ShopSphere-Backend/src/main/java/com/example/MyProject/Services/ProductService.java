@@ -80,12 +80,21 @@ public class ProductService {
         Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
+        List<String> images = new java.util.ArrayList<>();
+        if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
+            images.addAll(dto.getImageUrls());
+        } else if (dto.getImageUrl() != null && !dto.getImageUrl().isBlank()) {
+            images.add(dto.getImageUrl());
+        }
+        String primaryImage = !images.isEmpty() ? images.get(0) : dto.getImageUrl();
+
         Product product = Product.builder()
                 .name(dto.getName())
                 .description(dto.getDescription())
                 .price(dto.getPrice())
                 .stock(dto.getStock() != null ? dto.getStock() : 0)
-                .imageUrl(dto.getImageUrl())
+                .imageUrl(primaryImage)
+                .imageUrls(images)
                  .reviewCount(0)
                 .discountPercentage(dto.getDiscountPercentage())
                 .category(category)
@@ -118,7 +127,16 @@ public class ProductService {
         product.setDescription(dto.getDescription());
         product.setPrice(dto.getPrice());
         product.setStock(dto.getStock() != null ? dto.getStock() : 0);
-        product.setImageUrl(dto.getImageUrl());
+        if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
+            product.getImageUrls().clear();
+            product.getImageUrls().addAll(dto.getImageUrls());
+            product.setImageUrl(dto.getImageUrls().get(0));
+        } else if (dto.getImageUrl() != null && !dto.getImageUrl().isBlank()) {
+            product.setImageUrl(dto.getImageUrl());
+            if (product.getImageUrls().isEmpty()) {
+                product.getImageUrls().add(dto.getImageUrl());
+            }
+        }
         // product.setRating(dto.getRating());
         // product.setReviewCount(dto.getReviewCount());
         product.setDiscountPercentage(dto.getDiscountPercentage());
@@ -289,6 +307,13 @@ public class ProductService {
                         .build())
                 .collect(Collectors.toList());
 
+        List<String> images = new java.util.ArrayList<>();
+        if (product.getImageUrls() != null && !product.getImageUrls().isEmpty()) {
+            images.addAll(product.getImageUrls());
+        } else if (product.getImageUrl() != null && !product.getImageUrl().isBlank()) {
+            images.add(product.getImageUrl());
+        }
+
         return ProductResponse.builder()
                 .productId(product.getProductId())
                 .name(product.getName())
@@ -297,6 +322,7 @@ public class ProductService {
                 .stock(product.getStock())
                 .status(product.getStatus())
                 .imageUrl(product.getImageUrl())
+                .imageUrls(images)
                 .rating(product.getRating())
                 .reviewCount(product.getReviewCount())
                 .discountPercentage(product.getDiscountPercentage())

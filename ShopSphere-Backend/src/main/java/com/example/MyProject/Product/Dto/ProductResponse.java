@@ -14,6 +14,9 @@ public class ProductResponse {
     private Double price;
     private Integer stock;
     private String imageUrl;
+
+    @Builder.Default
+    private java.util.List<String> imageUrls = new java.util.ArrayList<>();
     private ProductStatus status;
     private Double rating;
     private Integer reviewCount;

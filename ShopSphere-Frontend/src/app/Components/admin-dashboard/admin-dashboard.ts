@@ -446,6 +446,7 @@ export class AdminDashboard implements OnInit {
       price: p.price,
       stock: p.stock,
       imageUrl: p.imageUrl,
+      imageUrls: p.imageUrls ? [...p.imageUrls] : (p.imageUrl ? [p.imageUrl] : []),
       status: p.status,
       // Ratings now come only from real customer reviews; the server ignores these two.
       rating: null,
@@ -482,7 +483,14 @@ export class AdminDashboard implements OnInit {
       next: (res) => {
         this.uploadingImage.set(false);
         if (res.success && res.data?.imageUrl) {
-          this.productForm.imageUrl = res.data.imageUrl;
+          const img = res.data.imageUrl;
+          if (!this.productForm.imageUrls) this.productForm.imageUrls = [];
+          if (!this.productForm.imageUrls.includes(img)) {
+            this.productForm.imageUrls.push(img);
+          }
+          if (!this.productForm.imageUrl) {
+            this.productForm.imageUrl = img;
+          }
           this.toastService.success('Image uploaded.');
         } else {
           this.toastService.error(res.message || 'Upload failed.');
@@ -495,6 +503,22 @@ export class AdminDashboard implements OnInit {
         this.toastService.error(err.error?.message || 'Could not upload image.');
       },
     });
+  }
+
+  removeGalleryImage(index: number): void {
+    if (!this.productForm.imageUrls) return;
+    this.productForm.imageUrls.splice(index, 1);
+    if (this.productForm.imageUrls.length > 0) {
+      this.productForm.imageUrl = this.productForm.imageUrls[0];
+    } else {
+      this.productForm.imageUrl = '';
+    }
+  }
+
+  setPrimaryImage(index: number): void {
+    if (!this.productForm.imageUrls || !this.productForm.imageUrls[index]) return;
+    this.productForm.imageUrl = this.productForm.imageUrls[index];
+    this.toastService.info('Primary image set.');
   }
 
   addVariantRow(): void {
@@ -695,6 +719,7 @@ export class AdminDashboard implements OnInit {
       price: 0,
       stock: 0,
       imageUrl: '',
+      imageUrls: [],
       status: ProductStatus.IN_STOCK,
       rating: null,
       reviewCount: null,

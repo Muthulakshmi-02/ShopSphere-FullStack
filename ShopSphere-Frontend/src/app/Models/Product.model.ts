@@ -36,6 +36,7 @@ export interface ProductResponse {
   price: number;         // private Double price
   stock: number;         // private Integer stock
   imageUrl: string;      // private String imageUrl
+  imageUrls?: string[];  // Multi-image gallery list
   status: ProductStatus; // private ProductStatus status (Enum)
   rating?: number;       // private Double rating (0-5, optional)
   reviewCount?: number;  // private Integer reviewCount (optional)
@@ -58,6 +59,7 @@ export interface ProductRequest {
   price: number;
   stock: number;
   imageUrl: string;
+  imageUrls?: string[];
   status: ProductStatus;
   rating?: number | null;
   reviewCount?: number | null;

@@ -566,19 +566,30 @@
           </div>
 
           <div class="form-field full">
-            <label>Product Visual Asset</label>
+            <label>Product Visual Assets (Gallery)</label>
             <div class="image-upload-row">
-              <div class="image-preview" *ngIf="productForm.imageUrl">
-                <img [src]="productImageUrl(productForm.imageUrl)" alt="Preview" />
+              <div class="image-gallery-previews" *ngIf="productForm.imageUrls && productForm.imageUrls.length > 0">
+                <div
+                  *ngFor="let img of productForm.imageUrls; let i = index"
+                  class="image-preview-item"
+                  [class.is-primary]="productForm.imageUrl === img"
+                >
+                  <img [src]="productImageUrl(img)" alt="Preview" />
+                  <span class="primary-badge" *ngIf="productForm.imageUrl === img">Primary</span>
+                  <div class="preview-actions">
+                    <button type="button" class="action-btn" title="Set as primary image" (click)="setPrimaryImage(i)">★</button>
+                    <button type="button" class="action-btn delete" title="Remove image" (click)="removeGalleryImage(i)">✕</button>
+                  </div>
+                </div>
               </div>
+
               <div class="image-upload-controls">
                 <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="onImageSelected($event)"
                   #imageInput hidden />
                 <button type="button" class="btn ghost" (click)="imageInput.click()" [disabled]="uploadingImage()">
-                  {{ uploadingImage() ? 'Uploading asset…' : (productForm.imageUrl ? 'Replace asset' : 'Upload asset')
-                  }}
+                  {{ uploadingImage() ? 'Uploading asset…' : ((productForm.imageUrls && productForm.imageUrls.length > 0) ? '+ Add another image' : 'Upload image') }}
                 </button>
-                <span class="upload-hint">Supported formats: JPG, PNG, WEBP, GIF (Max 5MB)</span>
+                <span class="upload-hint">Supported formats: JPG, PNG, WEBP, GIF (Max 5MB each)</span>
               </div>
             </div>
           </div>

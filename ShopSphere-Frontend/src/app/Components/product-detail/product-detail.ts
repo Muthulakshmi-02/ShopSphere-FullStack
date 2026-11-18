@@ -43,6 +43,41 @@ export class ProductDetail implements OnInit {
   loadError = signal(false);
   quantity = signal(1);
 
+  // --- Image Gallery ---
+  selectedImageIndex = signal<number>(0);
+
+  galleryImages = computed<string[]>(() => {
+    const p = this.product();
+    if (!p) return [];
+    if (p.imageUrls && p.imageUrls.length > 0) {
+      return p.imageUrls;
+    }
+    return p.imageUrl ? [p.imageUrl] : [];
+  });
+
+  activeImageUrl = computed<string>(() => {
+    const list = this.galleryImages();
+    if (list.length === 0) return '';
+    const idx = this.selectedImageIndex();
+    return list[idx] || list[0];
+  });
+
+  selectImage(index: number): void {
+    this.selectedImageIndex.set(index);
+  }
+
+  prevImage(): void {
+    const total = this.galleryImages().length;
+    if (total <= 1) return;
+    this.selectedImageIndex.update(i => (i - 1 + total) % total);
+  }
+
+  nextImage(): void {
+    const total = this.galleryImages().length;
+    if (total <= 1) return;
+    this.selectedImageIndex.update(i => (i + 1) % total);
+  }
+
   // --- Variants ---
   selectedSize = signal<string | null>(null);
   selectedColor = signal<string | null>(null);

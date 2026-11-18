@@ -21,8 +21,44 @@
 
   <div class="detail-grid">
     <div class="image-panel">
-      <img [src]="productImageUrl(p.imageUrl)" [alt]="p.name" class="detail-img" />
-      <span class="discount-badge" *ngIf="p.discountPercentage">-{{ p.discountPercentage }}%</span>
+      <div class="main-image-wrapper">
+        <img [src]="productImageUrl(activeImageUrl())" [alt]="p.name" class="detail-img" />
+        <span class="discount-badge" *ngIf="p.discountPercentage">-{{ p.discountPercentage }}%</span>
+
+        <!-- Gallery Arrows (only if multiple images) -->
+        <button
+          type="button"
+          class="gallery-nav-btn prev"
+          *ngIf="galleryImages().length > 1"
+          (click)="prevImage()"
+          aria-label="Previous image"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          class="gallery-nav-btn next"
+          *ngIf="galleryImages().length > 1"
+          (click)="nextImage()"
+          aria-label="Next image"
+        >
+          ›
+        </button>
+      </div>
+
+      <!-- Thumbnails Strip (only if multiple images) -->
+      <div class="thumbnail-strip" *ngIf="galleryImages().length > 1">
+        <button
+          type="button"
+          *ngFor="let img of galleryImages(); let i = index"
+          class="thumb-btn"
+          [class.active]="selectedImageIndex() === i"
+          (click)="selectImage(i)"
+          [attr.aria-label]="'View image ' + (i + 1)"
+        >
+          <img [src]="productImageUrl(img)" [alt]="p.name + ' thumbnail ' + (i + 1)" class="thumb-img" />
+        </button>
+      </div>
     </div>
 
     <div class="info-panel">

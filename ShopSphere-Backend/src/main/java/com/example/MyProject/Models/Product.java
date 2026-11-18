@@ -50,6 +50,12 @@ public class Product {
     @Column(nullable = false, length = 500)
     private String imageUrl;
 
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
+    @Column(name = "image_url", length = 500)
+    @Builder.Default
+    private List<String> imageUrls = new ArrayList<>();
+
     @DecimalMin(value = "0.0", message = "{product.rating.min}")
     @DecimalMax(value = "5.0", message = "{product.rating.max}")
     @Column
