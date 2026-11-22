@@ -40,9 +40,10 @@ class PromoServiceTest {
     void setUp() {
         validPercentageCoupon = Coupon.builder()
                 .code("SAVE20")
-                .discountPercentage(20)
+                .type("percent")
+                .value(0.20)
                 .active(true)
-                .validUntil(LocalDateTime.now().plusDays(10))
+                .expiresAt(LocalDateTime.now().plusDays(10))
                 .minOrderAmount(500.0)
                 .build();
     }
