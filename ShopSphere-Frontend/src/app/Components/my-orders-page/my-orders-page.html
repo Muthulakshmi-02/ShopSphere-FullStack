@@ -73,7 +73,11 @@
                     appears within 5 to 7 business days.
                 </p>
 
-                <div class="order-actions" *ngIf="canPay(order) || canCancel(order)">
+                <div class="order-actions">
+                    <button class="invoice-btn" [disabled]="downloadingInvoiceId() === order.orderId"
+                        (click)="downloadInvoice(order)" title="Download official tax invoice">
+                        {{ downloadingInvoiceId() === order.orderId ? 'Downloading…' : '📄 Invoice' }}
+                    </button>
                     <span class="pay-hint" *ngIf="canPay(order)">
                         Payment pending. Complete it within 30 minutes or the order is cancelled automatically.
                     </span>

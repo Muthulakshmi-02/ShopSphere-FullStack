@@ -4,6 +4,8 @@ import { Router, RouterModule } from '@angular/router';
 import { OrderResponse } from '../../Models/Order.model';
 import { productImageUrl } from '../../shared/api.config';
 import { OrderTimeline } from '../../shared/order-timeline/order-timeline';
+import { OrderService } from '../../Services/order-service';
+import { ToastService } from '../../shared/toast/toast-service';
 
 @Component({
   selector: 'app-order-success',
@@ -15,8 +17,12 @@ import { OrderTimeline } from '../../shared/order-timeline/order-timeline';
 export class OrderSuccess implements OnInit {
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
+  private orderService = inject(OrderService);
+  private toastService = inject(ToastService);
+
   protected readonly productImageUrl = productImageUrl;
   orderData?: OrderResponse;
+  downloadingInvoice = false;
 
   constructor() {
     // The order is handed over by the checkout page via router state. It has to be read here, while
@@ -43,5 +49,29 @@ export class OrderSuccess implements OnInit {
 
   get isCod(): boolean {
     return this.orderData?.paymentMethod === 'COD';
+  }
+
+  downloadInvoice(): void {
+    if (!this.orderData?.orderId) return;
+    const orderId = this.orderData.orderId;
+    this.downloadingInvoice = true;
+    this.orderService.downloadInvoice(orderId).subscribe({
+      next: (blob) => {
+        this.downloadingInvoice = false;
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice-${orderId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.toastService.success(`Invoice for order #${orderId} downloaded.`);
+      },
+      error: () => {
+        this.downloadingInvoice = false;
+        this.toastService.error('Could not download invoice. Please try again.');
+      }
+    });
   }
 }

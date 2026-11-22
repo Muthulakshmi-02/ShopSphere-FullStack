@@ -214,4 +214,26 @@ export class MyOrdersPage implements OnInit {
       },
     });
   }
+
+  downloadInvoice(order: OrderResponse): void {
+    this.downloadingInvoiceId.set(order.orderId);
+    this.orderService.downloadInvoice(order.orderId).subscribe({
+      next: (blob) => {
+        this.downloadingInvoiceId.set(null);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice-${order.orderId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.toastService.success(`Invoice for order #${order.orderId} downloaded.`);
+      },
+      error: () => {
+        this.downloadingInvoiceId.set(null);
+        this.toastService.error('Could not download invoice. Please try again.');
+      }
+    });
+  }
 }
