@@ -28,16 +28,14 @@ class PromoServiceTest {
     @Mock
     private UserCouponRepository userCouponRepository;
 
-    @Spy
-    private PricingService pricingService = new PricingService();
-
-    @InjectMocks
     private PromoService promoService;
 
     private Coupon validPercentageCoupon;
 
     @BeforeEach
     void setUp() {
+        promoService = new PromoService(couponRepository, userCouponRepository, new PricingService());
+
         validPercentageCoupon = Coupon.builder()
                 .code("SAVE20")
                 .type("percent")

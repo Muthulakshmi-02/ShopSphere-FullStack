@@ -32,6 +32,7 @@ public class EmailService {
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
+    private final InvoicePdfService invoicePdfService;
 
     @Value("${app.mail.enabled:false}")
     private boolean mailEnabled;
@@ -52,8 +53,16 @@ public class EmailService {
                   + money(order.getTotalAmount()) + " ready to pay when it arrives. Here's a summary:"
                 : "We've received your payment and your order is now being processed. Here's a summary:";
 
+        byte[] invoicePdf = null;
+        try {
+            invoicePdf = invoicePdfService.generateInvoice(order);
+        } catch (Exception e) {
+            log.warn("Could not generate invoice attachment for order {}: {}", order.getOrderId(), e.getMessage());
+        }
+
         send(order.getUser().getEmail(), subject,
-                buildOrderEmail(order, "Thanks for your order!", message));
+                buildOrderEmail(order, "Thanks for your order!", message),
+                "invoice-" + order.getOrderId() + ".pdf", invoicePdf);
     }
 
     public void sendOrderStatusUpdate(Order order) {
@@ -139,6 +148,10 @@ public class EmailService {
     // --- Internals ---
 
     private void send(String to, String subject, String htmlBody) {
+        send(to, subject, htmlBody, null, null);
+    }
+
+    private void send(String to, String subject, String htmlBody, String attachmentFilename, byte[] attachmentBytes) {
         if (!mailEnabled) {
             log.info("Email sending is disabled (app.mail.enabled=false) - skipped '{}' to {}", subject, to);
             return;
@@ -150,12 +163,16 @@ public class EmailService {
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            boolean hasAttachment = attachmentBytes != null && attachmentBytes.length > 0 && attachmentFilename != null;
+            MimeMessageHelper helper = new MimeMessageHelper(message, hasAttachment, "UTF-8");
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
             if (fromAddress != null && !fromAddress.isBlank()) {
                 helper.setFrom(fromAddress, fromName);
+            }
+            if (hasAttachment) {
+                helper.addAttachment(attachmentFilename, new org.springframework.core.io.ByteArrayResource(attachmentBytes));
             }
             mailSender.send(message);
             log.info("Sent email '{}' to {}", subject, to);

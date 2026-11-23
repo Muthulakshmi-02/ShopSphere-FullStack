@@ -44,9 +44,11 @@ export interface ProductResponse {
   categoryId: number;    // private Long categoryId
   categoryName: string;  // private String categoryName
   variants: ProductVariantResponse[]; // empty array = simple product, no variants
+  effectivePrice?: number;
   isNew?: boolean;
   inCart?: boolean;
   outOfStock?: boolean;
+  [key: string]: any;
 }
 
 /**
