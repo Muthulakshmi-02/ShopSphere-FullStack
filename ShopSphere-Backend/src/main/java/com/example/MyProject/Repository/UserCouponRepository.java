@@ -9,4 +9,6 @@ public interface UserCouponRepository extends JpaRepository<UserCoupon, Long> {
     boolean existsByUserEmailAndCouponCode(String userEmail, String couponCode);
 
     void deleteByUserEmailAndCouponCode(String userEmail, String couponCode);
+
+    long countByCouponCodeIgnoreCase(String couponCode);
 }

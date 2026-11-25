@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProductService, Page, ProductStats } from '../../Services/product-service';
 import { CategoryService } from '../../Services/category-service';
+import { CouponService } from '../../Services/coupon-service';
+import { CouponRequest, CouponResponse } from '../../Models/Coupon.model';
 import {
   ProductResponse,
   ProductRequest,
@@ -42,18 +44,37 @@ export class AdminDashboard implements OnInit {
   private categoryService = inject(CategoryService);
   private orderService = inject(OrderService);
   private analyticsService = inject(AnalyticsService);
+  private couponService = inject(CouponService);
   private toastService = inject(ToastService);
   private confirmService = inject(ConfirmService);
 
   protected readonly productImageUrl = productImageUrl;
 
   // View state
-  activeTab = signal<'products' | 'categories' | 'orders' | 'analytics' | ''>('products');
+  activeTab = signal<'products' | 'categories' | 'orders' | 'analytics' | 'coupons' | ''>('products');
   isModalOpen = signal(false);
   isEditMode = signal(false);
   selectedId = signal<number | null>(null);
   loading = signal(false);
   uploadingImage = signal(false);
+
+  // --- Coupons tab state ---
+  coupons = signal<CouponResponse[]>([]);
+  couponsLoading = signal(false);
+  couponSaving = signal(false);
+  isCouponModalOpen = signal(false);
+  isEditingCoupon = signal(false);
+  selectedCouponId = signal<number | null>(null);
+  togglingCouponId = signal<number | null>(null);
+  couponExpiryInput = '';
+  couponForm: CouponRequest = {
+    code: '',
+    type: 'percent',
+    value: 10,
+    active: true,
+    minOrderAmount: null,
+    expiresAt: null
+  };
 
   // Data
   products = signal<ProductResponse[]>([]);
@@ -236,6 +257,7 @@ export class AdminDashboard implements OnInit {
     this.loadStats();
     this.loadCategories();
     this.loadOrders();
+    this.loadCoupons();
   }
 
   loadStats(): void {
@@ -710,6 +732,147 @@ export class AdminDashboard implements OnInit {
     this.currentSort = sort;
     this.page.set(0);
     this.loadProducts();
+  }
+
+  openCouponsTab(): void {
+    this.activeTab.set('coupons');
+    this.loadCoupons();
+  }
+
+  loadCoupons(): void {
+    this.couponsLoading.set(true);
+    this.couponService.getAllCoupons().subscribe({
+      next: (res) => {
+        this.coupons.set(res.data ?? []);
+        this.couponsLoading.set(false);
+      },
+      error: () => {
+        this.couponsLoading.set(false);
+        this.toastService.error('Could not load coupons.');
+      }
+    });
+  }
+
+  openCreateCouponModal(): void {
+    this.isEditingCoupon.set(false);
+    this.selectedCouponId.set(null);
+    this.couponExpiryInput = '';
+    this.couponForm = {
+      code: '',
+      type: 'percent',
+      value: 10,
+      active: true,
+      minOrderAmount: null,
+      expiresAt: null
+    };
+    this.isCouponModalOpen.set(true);
+  }
+
+  openEditCouponModal(coupon: CouponResponse): void {
+    this.isEditingCoupon.set(true);
+    this.selectedCouponId.set(coupon.id);
+    this.couponExpiryInput = coupon.expiresAt ? coupon.expiresAt.substring(0, 16) : '';
+    this.couponForm = {
+      code: coupon.code,
+      type: coupon.type,
+      value: coupon.displayValue,
+      active: coupon.active,
+      minOrderAmount: coupon.minOrderAmount,
+      expiresAt: coupon.expiresAt
+    };
+    this.isCouponModalOpen.set(true);
+  }
+
+  closeCouponModal(): void {
+    this.isCouponModalOpen.set(false);
+  }
+
+  async saveCoupon(): Promise<void> {
+    const f = this.couponForm;
+    const code = (f.code ?? '').trim().toUpperCase();
+    if (code.length < 3 || code.length > 20) {
+      this.toastService.error('Coupon code must be between 3 and 20 characters.');
+      return;
+    }
+    if (!/^[A-Z0-9_-]+$/.test(code)) {
+      this.toastService.error('Coupon code may only contain letters, numbers, hyphens, and underscores.');
+      return;
+    }
+    if (f.value == null || f.value <= 0) {
+      this.toastService.error('Discount value must be greater than 0.');
+      return;
+    }
+    if (f.type === 'percent' && f.value > 100) {
+      this.toastService.error('Percentage discount cannot exceed 100%.');
+      return;
+    }
+
+    const payload: CouponRequest = {
+      code: code,
+      type: f.type,
+      value: f.value,
+      active: f.active,
+      minOrderAmount: f.minOrderAmount && f.minOrderAmount > 0 ? f.minOrderAmount : null,
+      expiresAt: this.couponExpiryInput ? this.couponExpiryInput : null
+    };
+
+    this.couponSaving.set(true);
+    const request = this.isEditingCoupon()
+      ? this.couponService.updateCoupon(this.selectedCouponId()!, payload)
+      : this.couponService.createCoupon(payload);
+
+    request.subscribe({
+      next: () => {
+        this.couponSaving.set(false);
+        this.isCouponModalOpen.set(false);
+        this.toastService.success(this.isEditingCoupon() ? 'Coupon updated.' : 'Coupon created.');
+        this.loadCoupons();
+      },
+      error: (err) => {
+        this.couponSaving.set(false);
+        this.toastService.error(err.error?.message || 'Failed to save coupon.');
+      }
+    });
+  }
+
+  toggleCouponActive(coupon: CouponResponse): void {
+    this.togglingCouponId.set(coupon.id);
+    this.couponService.toggleActive(coupon.id).subscribe({
+      next: (res) => {
+        this.togglingCouponId.set(null);
+        if (res.data) {
+          const updated = res.data;
+          this.coupons.update(list => list.map(c => c.id === coupon.id ? updated : c));
+          this.toastService.success(`Coupon ${coupon.code} marked ${updated.active ? 'Active' : 'Inactive'}.`);
+        } else {
+          this.loadCoupons();
+        }
+      },
+      error: (err) => {
+        this.togglingCouponId.set(null);
+        this.toastService.error(err.error?.message || 'Could not toggle coupon status.');
+      }
+    });
+  }
+
+  async deleteCoupon(coupon: CouponResponse): Promise<void> {
+    const confirmed = await this.confirmService.ask({
+      title: `Delete coupon "${coupon.code}"?`,
+      message: 'This promotional code will be permanently removed. Customers will no longer be able to apply it.',
+      confirmLabel: 'Delete coupon',
+      danger: true
+    });
+    if (!confirmed) return;
+
+    this.couponService.deleteCoupon(coupon.id).subscribe({
+      next: () => {
+        this.toastService.success(`Coupon "${coupon.code}" deleted.`);
+        this.loadCoupons();
+      },
+      error: (err) => {
+        this.toastService.error(err.error?.message || 'Could not delete coupon.');
+      }
+    });
   }
 
   private initProductForm(): ProductRequest {

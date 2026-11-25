@@ -20,6 +20,11 @@
         <span class="nav-label">Orders</span>
       </button>
 
+      <button class="tab-btn" [class.active]="activeTab() === 'coupons'" (click)="openCouponsTab()">
+        <mat-icon class="nav-icon">confirmation_number</mat-icon>
+        <span class="nav-label">Coupons</span>
+      </button>
+
       <button class="tab-btn" [class.active]="activeTab() === 'analytics'" (click)="openAnalyticsTab()">
         <mat-icon class="nav-icon">analytics</mat-icon>
         <span class="nav-label">Analytics</span>
@@ -36,6 +41,7 @@
           activeTab() === 'products' ? 'Products' :
           activeTab() === 'categories' ? 'Categories' :
           activeTab() === 'orders' ? 'Orders' :
+          activeTab() === 'coupons' ? 'Coupons & Promos' :
           'Store Performance'
           }}
         </h1>
@@ -47,6 +53,8 @@
           ? 'Organize product hierarchies and taxonomy'
           : activeTab() === 'orders'
           ? 'Track customer orders and fulfill statuses'
+          : activeTab() === 'coupons'
+          ? 'Manage discount codes, campaign rules, and track promo usage'
           : 'Revenue and best sellers from paid orders'
           }}
         </p>
@@ -70,6 +78,14 @@
           {{ editingCategoryId() ? 'Update category' : 'Save category' }}
         </button>
         <button class="btn ghost" *ngIf="editingCategoryId()" (click)="cancelEditCategory()">Cancel</button>
+      </div>
+
+      <!-- Coupons header tools -->
+      <div class="header-actions" *ngIf="activeTab() === 'coupons'">
+        <button class="btn primary" (click)="openCreateCouponModal()">
+          <span class="btn-icon">＋</span>
+          <span>Create Coupon</span>
+        </button>
       </div>
     </header>
 
@@ -518,6 +534,95 @@
         </div>
       </div>
 
+      <!-- COUPONS TAB -->
+      <div *ngIf="activeTab() === 'coupons'">
+        <div class="card p-0">
+          <div class="card-header-row">
+            <div>
+              <h2 class="section-title">Promotional Discount Codes</h2>
+              <p class="section-subtitle">Manage customer promo codes, discount rates, min orders, and active statuses</p>
+            </div>
+            <button class="btn primary" (click)="openCreateCouponModal()">
+              <span class="btn-icon">＋</span>
+              <span>Create Coupon</span>
+            </button>
+          </div>
+
+          <div *ngIf="couponsLoading()" class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading coupons...</span>
+          </div>
+
+          <div *ngIf="!couponsLoading() && coupons().length === 0" class="empty-state">
+            <mat-icon class="empty-icon">confirmation_number</mat-icon>
+            <h3>No coupons created yet</h3>
+            <p>Create your first promotional discount coupon to attract shoppers and boost sales.</p>
+            <button class="btn primary" (click)="openCreateCouponModal()">Create First Coupon</button>
+          </div>
+
+          <table class="table" *ngIf="!couponsLoading() && coupons().length > 0">
+            <thead>
+              <tr>
+                <th>Coupon Code</th>
+                <th>Discount</th>
+                <th>Min. Order</th>
+                <th>Validity / Expiry</th>
+                <th>Redemptions</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of coupons()">
+                <td>
+                  <div class="coupon-code-badge">
+                    <mat-icon class="coupon-tag-icon">local_offer</mat-icon>
+                    <code>{{ c.code }}</code>
+                  </div>
+                </td>
+                <td>
+                  <span class="discount-pill" [class.percent]="c.type === 'percent'" [class.flat]="c.type === 'flat'">
+                    {{ c.type === 'percent' ? (c.displayValue + '% OFF') : ('₹' + (c.displayValue | number:'1.0-0') + ' FLAT') }}
+                  </span>
+                </td>
+                <td>
+                  <span *ngIf="c.minOrderAmount">₹{{ c.minOrderAmount | number:'1.0-0' }}</span>
+                  <span *ngIf="!c.minOrderAmount" class="text-muted">No minimum</span>
+                </td>
+                <td>
+                  <div *ngIf="c.expiresAt" class="expiry-cell">
+                    <span [class.text-danger]="c.expired">{{ c.expiresAt | date:'dd MMM yyyy, hh:mm a' }}</span>
+                    <span *ngIf="c.expired" class="status-chip expired">Expired</span>
+                  </div>
+                  <span *ngIf="!c.expiresAt" class="status-chip perpetual">Never expires</span>
+                </td>
+                <td>
+                  <span class="usage-count">{{ c.usageCount }} orders</span>
+                </td>
+                <td>
+                  <button type="button" class="status-toggle-btn" [class.active]="c.active && !c.expired"
+                    [disabled]="togglingCouponId() === c.id" (click)="toggleCouponActive(c)"
+                    [title]="c.active ? 'Click to deactivate' : 'Click to activate'">
+                    <span class="toggle-dot"></span>
+                    <span>{{ (c.active && !c.expired) ? 'Active' : (c.expired ? 'Expired' : 'Inactive') }}</span>
+                  </button>
+                </td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="icon-btn edit" (click)="openEditCouponModal(c)" title="Edit Coupon">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button class="icon-btn delete" (click)="deleteCoupon(c)" title="Delete Coupon">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </section>
   </main>
 
@@ -641,6 +746,69 @@
         <button class="btn ghost" (click)="isModalOpen.set(false)">Cancel</button>
         <button class="btn primary" [disabled]="loading()" (click)="saveProduct()">
           {{ isEditMode() ? 'Commit changes' : 'Initialize product' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COUPON MODAL -->
+  <div class="modal-backdrop" *ngIf="isCouponModalOpen()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>{{ isEditingCoupon() ? 'Modify coupon parameters' : 'Create new promotional coupon' }}</h2>
+        <button class="icon-btn" (click)="closeCouponModal()" aria-label="Close">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Coupon Code *</label>
+            <input class="input" [(ngModel)]="couponForm.code" placeholder="e.g. SUMMER25"
+              style="text-transform: uppercase;" maxlength="20" />
+            <span class="form-note">Uppercase letters, numbers, hyphens, and underscores only.</span>
+          </div>
+
+          <div class="form-field">
+            <label>Discount Type *</label>
+            <select class="input" [(ngModel)]="couponForm.type">
+              <option value="percent">Percentage Discount (%)</option>
+              <option value="flat">Flat Rupee Discount (₹)</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label>{{ couponForm.type === 'percent' ? 'Discount Percentage (%) *' : 'Discount Amount (₹) *' }}</label>
+            <input class="input" type="number" min="0.01" [max]="couponForm.type === 'percent' ? 100 : 100000"
+              step="0.01" [(ngModel)]="couponForm.value"
+              [placeholder]="couponForm.type === 'percent' ? '20' : '150'" />
+          </div>
+
+          <div class="form-field">
+            <label>Minimum Order Amount (₹)</label>
+            <input class="input" type="number" min="0" step="1" [(ngModel)]="couponForm.minOrderAmount"
+              placeholder="e.g. 500 (optional)" />
+            <span class="form-note">Leave empty or 0 for no minimum threshold.</span>
+          </div>
+
+          <div class="form-field full">
+            <label>Expiration Date & Time (Optional)</label>
+            <input class="input" type="datetime-local" [(ngModel)]="couponExpiryInput" />
+            <span class="form-note">Leave empty if this promo code should never expire.</span>
+          </div>
+
+          <div class="form-field full">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="checkbox" [(ngModel)]="couponForm.active" />
+              <span>Enable this coupon immediately upon saving</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn ghost" (click)="closeCouponModal()">Cancel</button>
+        <button class="btn primary" [disabled]="couponSaving()" (click)="saveCoupon()">
+          {{ couponSaving() ? 'Saving…' : (isEditingCoupon() ? 'Save changes' : 'Create coupon') }}
         </button>
       </div>
     </div>
