@@ -1664,3 +1664,151 @@ textarea.input {
     font-family: monospace;
     font-weight: 600;
 }
+
+/* Reviews Moderation Styles */
+.reviews-table td {
+    vertical-align: middle;
+}
+
+.review-product-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.review-product-cell .product-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.product-info-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-width: 220px;
+}
+
+.product-title-mini {
+    font-weight: 600;
+    color: #F5F5F7;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.product-id-mini {
+    font-size: 0.75rem;
+    color: #8B92A8;
+}
+
+.reviewer-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.reviewer-cell strong {
+    color: #F5F5F7;
+    font-size: 0.9rem;
+}
+
+.reviewer-email {
+    font-size: 0.78rem;
+    color: #8B92A8;
+}
+
+.stars-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.star-icons {
+    color: #fbbf24;
+    font-size: 1rem;
+    letter-spacing: 1px;
+}
+
+.stars-badge.star-5 .star-icons {
+    color: #22c55e;
+}
+
+.stars-badge.star-low .star-icons {
+    color: #ef4444;
+}
+
+.rating-num {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #B8BFD4;
+}
+
+.review-comment-box {
+    max-width: 380px;
+}
+
+.review-comment-box p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: #D1D5DB;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.review-date {
+    font-size: 0.82rem;
+    color: #8B92A8;
+    white-space: nowrap;
+}
+
+.header-stat-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 61, 113, 0.1);
+    border: 1px solid rgba(255, 61, 113, 0.25);
+    padding: 6px 14px;
+    border-radius: 9999px;
+}
+
+.header-stat-badge .badge-count {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #FF3D71;
+}
+
+.header-stat-badge .badge-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #F5F5F7;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.select-filter {
+    cursor: pointer;
+    background: #161D2E;
+    color: #F5F5F7;
+    border: 1px solid rgba(245, 245, 247, 0.12);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+}
+
+.select-filter:focus {
+    outline: none;
+    border-color: #FF3D71;
+}

@@ -25,6 +25,11 @@
         <span class="nav-label">Coupons</span>
       </button>
 
+      <button class="tab-btn" [class.active]="activeTab() === 'reviews'" (click)="openReviewsTab()">
+        <mat-icon class="nav-icon">rate_review</mat-icon>
+        <span class="nav-label">Reviews</span>
+      </button>
+
       <button class="tab-btn" [class.active]="activeTab() === 'analytics'" (click)="openAnalyticsTab()">
         <mat-icon class="nav-icon">analytics</mat-icon>
         <span class="nav-label">Analytics</span>
@@ -42,6 +47,7 @@
           activeTab() === 'categories' ? 'Categories' :
           activeTab() === 'orders' ? 'Orders' :
           activeTab() === 'coupons' ? 'Coupons & Promos' :
+          activeTab() === 'reviews' ? 'Customer Reviews' :
           'Store Performance'
           }}
         </h1>
@@ -55,6 +61,8 @@
           ? 'Track customer orders and fulfill statuses'
           : activeTab() === 'coupons'
           ? 'Manage discount codes, campaign rules, and track promo usage'
+          : activeTab() === 'reviews'
+          ? 'Moderate customer reviews, star ratings, and feedback'
           : 'Revenue and best sellers from paid orders'
           }}
         </p>
@@ -86,6 +94,23 @@
           <span class="btn-icon">＋</span>
           <span>Create Coupon</span>
         </button>
+      </div>
+
+      <!-- Reviews header tools -->
+      <div class="header-actions" *ngIf="activeTab() === 'reviews'">
+        <div class="search-wrapper">
+          <span class="icon">🔍</span>
+          <input type="text" class="search-input" placeholder="Search reviews, products, users..." [ngModel]="reviewSearch()"
+            (ngModelChange)="onReviewSearchChange($event)" />
+        </div>
+        <select class="input select-filter" [ngModel]="reviewRatingFilter()" (ngModelChange)="onReviewRatingChange($event)">
+          <option value="ALL">All Ratings (1-5 ★)</option>
+          <option [value]="5">5 Stars ★★★★★</option>
+          <option [value]="4">4 Stars ★★★★☆</option>
+          <option [value]="3">3 Stars ★★★☆☆</option>
+          <option [value]="2">2 Stars ★★☆☆☆</option>
+          <option [value]="1">1 Star  ★☆☆☆☆</option>
+        </select>
       </div>
     </header>
 
@@ -621,6 +646,88 @@
                       <mat-icon>delete</mat-icon>
                     </button>
                   </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- REVIEWS TAB -->
+      <div *ngIf="activeTab() === 'reviews'">
+        <div class="section-card">
+          <div class="section-header">
+            <div>
+              <h3>Product Reviews Moderation</h3>
+              <p class="section-sub">
+                Review, filter and moderate customer feedback. Deleting a review immediately recalculates the product's average rating.
+              </p>
+            </div>
+            <div class="header-stat-badge">
+              <span class="badge-count">{{ filteredReviews().length }}</span>
+              <span class="badge-label">Reviews</span>
+            </div>
+          </div>
+
+          <div *ngIf="reviewsLoading()" class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading reviews...</span>
+          </div>
+
+          <div *ngIf="!reviewsLoading() && filteredReviews().length === 0" class="empty-state">
+            <mat-icon class="empty-icon">rate_review</mat-icon>
+            <h3>No reviews found</h3>
+            <p>{{ reviewSearch() || reviewRatingFilter() !== 'ALL' ? 'No reviews match your current filters.' : 'Customers have not posted any product reviews yet.' }}</p>
+          </div>
+
+          <table class="table reviews-table" *ngIf="!reviewsLoading() && filteredReviews().length > 0">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Customer</th>
+                <th>Rating</th>
+                <th>Feedback / Comment</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of filteredReviews()">
+                <td>
+                  <div class="review-product-cell">
+                    <img [src]="productImageUrl(r.productImageUrl)" alt="{{ r.productName }}" class="product-thumb" />
+                    <div class="product-info-mini">
+                      <span class="product-title-mini" [title]="r.productName">{{ r.productName }}</span>
+                      <span class="product-id-mini">ID #{{ r.productId }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="reviewer-cell">
+                    <strong>{{ r.reviewerName || 'Anonymous' }}</strong>
+                    <span class="reviewer-email">{{ r.reviewerEmail }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="stars-badge" [class.star-5]="r.rating === 5" [class.star-low]="r.rating <= 2">
+                    <span class="star-icons">
+                      <span *ngFor="let s of [1,2,3,4,5]">{{ s <= r.rating ? '★' : '☆' }}</span>
+                    </span>
+                    <span class="rating-num">({{ r.rating }}/5)</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="review-comment-box">
+                    <p>{{ r.comment || 'No written text provided' }}</p>
+                  </div>
+                </td>
+                <td>
+                  <span class="review-date">{{ r.createdAt | date:'dd MMM yyyy' }}</span>
+                </td>
+                <td>
+                  <button class="icon-btn delete" (click)="deleteReviewAdmin(r)" [disabled]="deletingReviewId() === r.reviewId" title="Delete Review">
+                    <mat-icon>{{ deletingReviewId() === r.reviewId ? 'hourglass_empty' : 'delete' }}</mat-icon>
+                  </button>
                 </td>
               </tr>
             </tbody>

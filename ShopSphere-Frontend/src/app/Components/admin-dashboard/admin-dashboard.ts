@@ -5,6 +5,8 @@ import { ProductService, Page, ProductStats } from '../../Services/product-servi
 import { CategoryService } from '../../Services/category-service';
 import { CouponService } from '../../Services/coupon-service';
 import { CouponRequest, CouponResponse } from '../../Models/Coupon.model';
+import { ReviewService } from '../../Services/review-service';
+import { AdminReviewResponse } from '../../Models/Review.model';
 import {
   ProductResponse,
   ProductRequest,
@@ -45,18 +47,41 @@ export class AdminDashboard implements OnInit {
   private orderService = inject(OrderService);
   private analyticsService = inject(AnalyticsService);
   private couponService = inject(CouponService);
+  private reviewService = inject(ReviewService);
   private toastService = inject(ToastService);
   private confirmService = inject(ConfirmService);
 
   protected readonly productImageUrl = productImageUrl;
 
   // View state
-  activeTab = signal<'products' | 'categories' | 'orders' | 'analytics' | 'coupons' | ''>('products');
+  activeTab = signal<'products' | 'categories' | 'orders' | 'analytics' | 'coupons' | 'reviews' | ''>('products');
   isModalOpen = signal(false);
   isEditMode = signal(false);
   selectedId = signal<number | null>(null);
   loading = signal(false);
   uploadingImage = signal(false);
+
+  // --- Reviews tab state ---
+  adminReviews = signal<AdminReviewResponse[]>([]);
+  reviewsLoading = signal(false);
+  reviewSearch = signal('');
+  reviewRatingFilter = signal<number | 'ALL'>('ALL');
+  deletingReviewId = signal<number | null>(null);
+
+  filteredReviews = computed(() => {
+    const q = this.reviewSearch().trim().toLowerCase();
+    const star = this.reviewRatingFilter();
+    return this.adminReviews().filter(r => {
+      if (star !== 'ALL' && r.rating !== Number(star)) return false;
+      if (!q) return true;
+      return (
+        (r.productName && r.productName.toLowerCase().includes(q)) ||
+        (r.reviewerName && r.reviewerName.toLowerCase().includes(q)) ||
+        (r.reviewerEmail && r.reviewerEmail.toLowerCase().includes(q)) ||
+        (r.comment && r.comment.toLowerCase().includes(q))
+      );
+    });
+  });
 
   // --- Coupons tab state ---
   coupons = signal<CouponResponse[]>([]);
@@ -258,6 +283,7 @@ export class AdminDashboard implements OnInit {
     this.loadCategories();
     this.loadOrders();
     this.loadCoupons();
+    this.loadReviews();
   }
 
   loadStats(): void {
@@ -768,6 +794,57 @@ export class AdminDashboard implements OnInit {
   openCouponsTab(): void {
     this.activeTab.set('coupons');
     this.loadCoupons();
+  }
+
+  openReviewsTab(): void {
+    this.activeTab.set('reviews');
+    this.loadReviews();
+  }
+
+  loadReviews(): void {
+    this.reviewsLoading.set(true);
+    this.reviewService.getAllReviewsForAdmin().subscribe({
+      next: (res) => {
+        this.adminReviews.set(res.data ?? []);
+        this.reviewsLoading.set(false);
+      },
+      error: () => {
+        this.reviewsLoading.set(false);
+        this.toastService.error('Could not load reviews.');
+      }
+    });
+  }
+
+  onReviewSearchChange(value: string): void {
+    this.reviewSearch.set(value);
+  }
+
+  onReviewRatingChange(value: string | number): void {
+    this.reviewRatingFilter.set(value === 'ALL' ? 'ALL' : Number(value));
+  }
+
+  async deleteReviewAdmin(review: AdminReviewResponse): Promise<void> {
+    const confirmed = await this.confirmService.ask({
+      title: `Delete review by ${review.reviewerName || 'Customer'}?`,
+      message: `Are you sure you want to delete this ${review.rating}-star review for "${review.productName}"? The product's rating score will be recalculated immediately.`,
+      confirmLabel: 'Delete review',
+      danger: true
+    });
+    if (!confirmed) return;
+
+    this.deletingReviewId.set(review.reviewId);
+    this.reviewService.deleteReviewById(review.reviewId).subscribe({
+      next: () => {
+        this.deletingReviewId.set(null);
+        this.toastService.success('Review deleted and product rating updated.');
+        this.loadReviews();
+        this.loadProducts();
+      },
+      error: (err) => {
+        this.deletingReviewId.set(null);
+        this.toastService.error(err.error?.message || 'Failed to delete review.');
+      }
+    });
   }
 
   loadCoupons(): void {

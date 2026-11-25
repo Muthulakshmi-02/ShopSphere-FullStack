@@ -19,6 +19,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @EntityGraph(attributePaths = "user")
     List<Review> findTop50ByProduct_ProductIdOrderByCreatedAtDesc(Long productId);
 
+    @EntityGraph(attributePaths = {"user", "product"})
+    List<Review> findAllByOrderByCreatedAtDesc();
+
     List<Review> findByProduct_ProductIdOrderByCreatedAtDesc(Long productId);
 
     boolean existsByUser_UserIdAndProduct_ProductId(Long userId, Long productId);

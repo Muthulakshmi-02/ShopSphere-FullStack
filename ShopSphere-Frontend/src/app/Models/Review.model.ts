@@ -16,3 +16,15 @@ export interface ReviewEligibilityResponse {
   alreadyReviewed: boolean;
   canReview: boolean;
 }
+
+export interface AdminReviewResponse {
+  reviewId: number;
+  productId: number;
+  productName: string;
+  productImageUrl?: string | null;
+  reviewerName: string;
+  reviewerEmail: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}

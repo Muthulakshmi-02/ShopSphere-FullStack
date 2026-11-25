@@ -10,6 +10,7 @@ import com.example.MyProject.Repository.OrderItemRepository;
 import com.example.MyProject.Repository.ProductRepository;
 import com.example.MyProject.Repository.ReviewRepository;
 import com.example.MyProject.Repository.UserRepository;
+import com.example.MyProject.Review.dto.AdminReviewResponse;
 import com.example.MyProject.Review.dto.ReviewEligibilityResponse;
 import com.example.MyProject.Review.dto.ReviewRequest;
 import com.example.MyProject.Review.dto.ReviewResponse;
@@ -121,6 +122,36 @@ public class ReviewService {
         recomputeProductRating(product);
 
         return ApiResponse.<Void>builder().success(true).message("Review deleted").build();
+    }
+
+    @Transactional(readOnly = true)
+    public ApiResponse<List<AdminReviewResponse>> getAllReviewsForAdmin() {
+        List<AdminReviewResponse> reviews = reviewRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(r -> AdminReviewResponse.builder()
+                        .reviewId(r.getReviewId())
+                        .productId(r.getProduct().getProductId())
+                        .productName(r.getProduct().getName())
+                        .productImageUrl(r.getProduct().getImageUrl())
+                        .reviewerName(r.getUser().getUserName())
+                        .reviewerEmail(r.getUser().getEmail())
+                        .rating(r.getRating())
+                        .comment(r.getComment())
+                        .createdAt(r.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+        return ApiResponse.<List<AdminReviewResponse>>builder().success(true).data(reviews).build();
+    }
+
+    /** Admin moderation: removes an abusive review directly by reviewId and recalculates rating. */
+    @Transactional
+    public ApiResponse<Void> deleteReviewById(Long reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found with id: " + reviewId));
+        Product product = review.getProduct();
+        reviewRepository.delete(review);
+        reviewRepository.flush();
+        recomputeProductRating(product);
+        return ApiResponse.<Void>builder().success(true).message("Review deleted successfully").build();
     }
 
     private boolean hasDeliveredPurchase(Long userId, Long productId) {
