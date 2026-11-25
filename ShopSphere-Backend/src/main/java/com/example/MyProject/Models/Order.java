@@ -91,6 +91,33 @@ public class Order {
     @Column(name = "discount_amount")
     private Double discountAmount = 0.0;
 
+    @Column(name = "tracking_number")
+    private String trackingNumber;
+
+    @Column(name = "carrier")
+    private String carrier;
+
+    @Column(name = "estimated_delivery")
+    private LocalDateTime estimatedDelivery;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("changedAt ASC")
+    @Builder.Default
+    private List<OrderStatusHistory> statusHistory = new java.util.ArrayList<>();
+
+    public void addStatusHistory(OrderStatus status, String note) {
+        if (this.statusHistory == null) {
+            this.statusHistory = new java.util.ArrayList<>();
+        }
+        OrderStatusHistory entry = OrderStatusHistory.builder()
+                .order(this)
+                .status(status)
+                .changedAt(LocalDateTime.now())
+                .note(note)
+                .build();
+        this.statusHistory.add(entry);
+    }
+
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {

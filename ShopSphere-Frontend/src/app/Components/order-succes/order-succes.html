@@ -18,7 +18,9 @@
     </div>
 
     <app-order-timeline [status]="orderData?.orderStatus || 'PENDING'"
-      [paymentStatus]="orderData?.paymentStatus ?? null">
+      [paymentStatus]="orderData?.paymentStatus ?? null"
+      [statusHistory]="orderData?.statusHistory || []" [carrier]="orderData?.carrier"
+      [trackingNumber]="orderData?.trackingNumber" [estimatedDelivery]="orderData?.estimatedDelivery">
     </app-order-timeline>
 
     <div class="order-details">

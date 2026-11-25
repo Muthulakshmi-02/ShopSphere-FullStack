@@ -367,6 +367,11 @@
                       (ngModelChange)="onOrderStatusChange(o, $event)">
                       <option *ngFor="let s of statusChoices(o)" [value]="s">{{ s }}</option>
                     </select>
+
+                    <div class="order-tracking-badge" *ngIf="o.carrier || o.trackingNumber">
+                      <span class="tracking-carrier">{{ o.carrier || 'Courier' }}</span>
+                      <code class="tracking-code" *ngIf="o.trackingNumber">{{ o.trackingNumber }}</code>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -809,6 +814,50 @@
         <button class="btn ghost" (click)="closeCouponModal()">Cancel</button>
         <button class="btn primary" [disabled]="couponSaving()" (click)="saveCoupon()">
           {{ couponSaving() ? 'Saving…' : (isEditingCoupon() ? 'Save changes' : 'Create coupon') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISPATCH MODAL -->
+  <div class="modal-backdrop" *ngIf="isDispatchModalOpen()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Dispatch Order #{{ dispatchOrderId() }}</h2>
+        <button class="icon-btn" (click)="closeDispatchModal()" aria-label="Close">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="form-note mb-4">
+          Provide courier and tracking details so the customer can track their delivery in real-time.
+        </p>
+
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Shipping Courier / Carrier *</label>
+            <select class="input" [(ngModel)]="dispatchCarrier">
+              <option value="BlueDart">BlueDart Express</option>
+              <option value="Delhivery">Delhivery</option>
+              <option value="DTDC">DTDC</option>
+              <option value="FedEx">FedEx</option>
+              <option value="India Post">India Post (Speed Post)</option>
+              <option value="Shadowfax">Shadowfax</option>
+              <option value="Other">Other Courier</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label>Tracking Number / AWB *</label>
+            <input class="input" [(ngModel)]="dispatchTrackingNumber" placeholder="e.g. BD849201934" />
+            <span class="form-note">Courier Air Waybill (AWB) or tracking number.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn ghost" (click)="closeDispatchModal()">Cancel</button>
+        <button class="btn primary" (click)="confirmDispatch()">
+          Mark as Shipped & Notify Customer
         </button>
       </div>
     </div>

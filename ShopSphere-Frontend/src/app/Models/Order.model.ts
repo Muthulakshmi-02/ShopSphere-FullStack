@@ -21,6 +21,12 @@ export interface OrderItemResponse {
   variantLabel?: string | null;
 }
 
+export interface OrderStatusHistoryResponse {
+  status: string;
+  changedAt: string;
+  note: string;
+}
+
 export interface OrderResponse {
   orderId: number;
   orderDate: string;
@@ -35,6 +41,11 @@ export interface OrderResponse {
   customerName?: string;
   customerEmail?: string;
   phoneNumber?: string;
+  trackingNumber?: string | null;
+  carrier?: string | null;
+  estimatedDelivery?: string | null;
+  statusHistory?: OrderStatusHistoryResponse[];
+  [key: string]: any;
 }
 // PaymentRequest and RazorpayOrderResponse stay as they are.
 export interface PaymentRequest {

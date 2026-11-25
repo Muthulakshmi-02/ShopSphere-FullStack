@@ -69,11 +69,15 @@ export class OrderService {
   }
 
   /** Admin: update order status. Maps to: PUT /api/admin/orders/{orderId}/status?status=NEW_STATUS */
-  updateOrderStatus(orderId: number, status: string): Observable<any> {
-    return this.http.put<any>(
-      `${this.adminApiUrl}/${orderId}/status?status=${encodeURIComponent(status)}`,
-      {}
-    );
+  updateOrderStatus(orderId: number, status: string, carrier?: string, trackingNumber?: string): Observable<any> {
+    let url = `${this.adminApiUrl}/${orderId}/status?status=${encodeURIComponent(status)}`;
+    if (carrier) {
+      url += `&carrier=${encodeURIComponent(carrier)}`;
+    }
+    if (trackingNumber) {
+      url += `&trackingNumber=${encodeURIComponent(trackingNumber)}`;
+    }
+    return this.http.put<any>(url, {});
   }
 
   /**

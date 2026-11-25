@@ -136,6 +136,9 @@ public class OrderService {
         }
 
         order.setOrderItems(orderItems);
+        order.addStatusHistory(order.getOrderStatus(),
+                cod ? "Order placed and confirmed via Cash on Delivery"
+                        : "Order placed by customer, awaiting payment");
         Order savedOrder = orderRepository.save(order);
 
         // Reserve the code now; it is released again if this order is cancelled unpaid.
@@ -245,6 +248,11 @@ public class OrderService {
 
     @Transactional
     public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus) {
+        return updateOrderStatus(orderId, newStatus, null, null);
+    }
+
+    @Transactional
+    public OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus, String carrier, String trackingNumber) {
         // CHANGED: findByIdForUpdate (row lock) instead of findById, so a status change can't
         // overwrite a payment that lands at the same moment (webhook / browser callback).
         Order order = orderRepository.findByIdForUpdate(orderId)
@@ -270,14 +278,36 @@ public class OrderService {
                     "This card order has not been paid yet, so it cannot be moved to " + newStatus + ".");
         }
 
+        String note;
         if (newStatus == OrderStatus.CANCELLED) {
             cancelInternal(order);
+            note = "Order cancelled";
         } else {
             order.setOrderStatus(newStatus);
             if (newStatus == OrderStatus.DELIVERED && cod) {
                 order.setPaymentStatus(PaymentStatus.PAID); // cash collected on delivery
             }
+
+            if (newStatus == OrderStatus.SHIPPED) {
+                if (carrier != null && !carrier.isBlank()) {
+                    order.setCarrier(carrier.trim());
+                }
+                if (trackingNumber != null && !trackingNumber.isBlank()) {
+                    order.setTrackingNumber(trackingNumber.trim());
+                }
+                order.setEstimatedDelivery(LocalDateTime.now().plusDays(4));
+                note = (order.getCarrier() != null ? "Dispatched via " + order.getCarrier() : "Package dispatched")
+                        + (order.getTrackingNumber() != null ? " (Tracking #: " + order.getTrackingNumber() + ")" : " and in transit");
+            } else if (newStatus == OrderStatus.DELIVERED) {
+                note = "Package successfully delivered to customer";
+            } else if (newStatus == OrderStatus.CONFIRMED) {
+                note = "Order confirmed and sent to warehouse for processing";
+            } else {
+                note = "Status updated to " + newStatus;
+            }
         }
+
+        order.addStatusHistory(newStatus, note);
 
         Order saved = orderRepository.save(order);
         events.publishEvent(new OrderEmailEvent(saved.getOrderId(),
@@ -312,6 +342,7 @@ public class OrderService {
         }
 
         cancelInternal(order);
+        order.addStatusHistory(OrderStatus.CANCELLED, "Order cancelled by customer");
         Order saved = orderRepository.save(order);
         // CHANGED: customer-initiated cancels now send the same email as admin cancels.
         // Delete this line if you don't want that.
@@ -452,6 +483,16 @@ public class OrderService {
         res.setPromoCode(order.getPromoCode());
         res.setDiscountAmount(order.getDiscountAmount());
         res.setPhoneNumber(order.getPhoneNumber());
+        res.setTrackingNumber(order.getTrackingNumber());
+        res.setCarrier(order.getCarrier());
+        res.setEstimatedDelivery(order.getEstimatedDelivery());
+        if (order.getStatusHistory() != null) {
+            res.setStatusHistory(order.getStatusHistory().stream()
+                    .map(h -> new OrderStatusHistoryResponse(h.getStatus().name(), h.getChangedAt(), h.getNote()))
+                    .collect(Collectors.toList()));
+        } else {
+            res.setStatusHistory(new ArrayList<>());
+        }
         if (order.getUser() != null) {
             res.setCustomerName(order.getUser().getUserName());
             res.setCustomerEmail(order.getUser().getEmail());

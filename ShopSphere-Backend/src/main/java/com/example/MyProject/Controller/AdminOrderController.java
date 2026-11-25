@@ -29,9 +29,12 @@ public class AdminOrderController {
     // Which changes are allowed is decided in OrderService.updateOrderStatus.
     @PutMapping("/{orderId}/status")
     public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
-            @PathVariable Long orderId, @RequestParam OrderStatus status) {
+            @PathVariable Long orderId,
+            @RequestParam OrderStatus status,
+            @RequestParam(required = false) String carrier,
+            @RequestParam(required = false) String trackingNumber) {
 
-        OrderResponse response = orderService.updateOrderStatus(orderId, status);
+        OrderResponse response = orderService.updateOrderStatus(orderId, status, carrier, trackingNumber);
         return ResponseEntity.ok(new ApiResponse<>(true, response, "Order status updated to " + status));
     }
 

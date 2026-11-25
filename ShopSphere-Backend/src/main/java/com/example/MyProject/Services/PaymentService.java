@@ -185,6 +185,7 @@ public class PaymentService {
         if (order.getOrderStatus() == OrderStatus.PENDING) {
             order.setOrderStatus(OrderStatus.CONFIRMED);
         }
+        order.addStatusHistory(OrderStatus.CONFIRMED, "Payment verified via Razorpay (" + razorpayPaymentId + ")");
         events.publishEvent(new OrderEmailEvent(order.getOrderId(), OrderEmailEvent.Type.CONFIRMATION));
         removePurchasedLinesFromCart(order);
     }

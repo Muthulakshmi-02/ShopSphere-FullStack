@@ -1,5 +1,6 @@
-import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, signal } from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common';
+import { OrderStatusHistoryResponse } from '../../Models/Order.model';
 
 interface TimelineStep {
   key: string;
@@ -14,48 +15,94 @@ const STEPS: TimelineStep[] = [
 ];
 
 /**
- * Visual order-status tracker for customers. Renders the four normal-flow steps as a progress
- * line; a cancelled order shows a distinct state instead of a broken/partial progress bar.
- *
- * Optional: pass [paymentStatus]="order.paymentStatus" (my-orders and order-success pages) so an
- * unpaid card order says "Awaiting payment" and a cancelled-but-paid order says its refund is
- * on the way. Without it everything behaves exactly as before.
+ * Visual order-status tracker for customers with real milestone timestamps,
+ * courier tracking information, and detailed event history.
  */
 @Component({
   selector: 'app-order-timeline',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, DatePipe],
   template: `
-    <div class="order-timeline" role="list" [attr.aria-label]="'Order status: ' + currentLabel"
-      *ngIf="status !== 'CANCELLED'; else cancelledState">
-      <div
-        class="timeline-step"
-        role="listitem"
-        *ngFor="let step of steps; let i = index"
-        [class.done]="i <= currentIndex"
-        [class.current]="i === currentIndex"
-        [class.line-done]="i < currentIndex"
-        [attr.aria-current]="i === currentIndex ? 'step' : null"
-      >
-        <div class="step-dot">
-          <svg *ngIf="isComplete(i)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <path d="M5 13l4 4L19 7" />
-          </svg>
-          <span *ngIf="!isComplete(i)">{{ i + 1 }}</span>
+    <div class="timeline-container">
+      <div class="order-timeline" role="list" [attr.aria-label]="'Order status: ' + currentLabel"
+        *ngIf="status !== 'CANCELLED'; else cancelledState">
+        <div
+          class="timeline-step"
+          role="listitem"
+          *ngFor="let step of steps; let i = index"
+          [class.done]="i <= currentIndex"
+          [class.current]="i === currentIndex"
+          [class.line-done]="i < currentIndex"
+          [attr.aria-current]="i === currentIndex ? 'step' : null"
+        >
+          <div class="step-dot">
+            <svg *ngIf="isComplete(i)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+            <span *ngIf="!isComplete(i)">{{ i + 1 }}</span>
+          </div>
+          <span class="step-label">{{ labelFor(step, i) }}</span>
+          <span class="step-time" *ngIf="timestampFor(step.key)">
+            {{ timestampFor(step.key) | date:'dd MMM, hh:mm a' }}
+          </span>
+          <div class="step-line" *ngIf="i < steps.length - 1"></div>
         </div>
-        <span class="step-label">{{ labelFor(step, i) }}</span>
-        <div class="step-line" *ngIf="i < steps.length - 1"></div>
+      </div>
+
+      <ng-template #cancelledState>
+        <div class="order-timeline cancelled">
+          <div class="cancelled-icon">✕</div>
+          <div class="cancelled-info">
+            <span class="cancelled-label">{{ cancelledText }}</span>
+            <span class="step-time" *ngIf="timestampFor('CANCELLED')">
+              {{ timestampFor('CANCELLED') | date:'dd MMM, hh:mm a' }}
+            </span>
+          </div>
+        </div>
+      </ng-template>
+
+      <!-- Package Tracking Info Bar (when Shipped or Delivered) -->
+      <div class="tracking-infobar" *ngIf="carrier || trackingNumber || estimatedDelivery">
+        <div class="tracking-item" *ngIf="carrier">
+          <span class="tracking-tag">Courier</span>
+          <strong>{{ carrier }}</strong>
+        </div>
+        <div class="tracking-item" *ngIf="trackingNumber">
+          <span class="tracking-tag">Tracking ID</span>
+          <code class="tracking-num">{{ trackingNumber }}</code>
+        </div>
+        <div class="tracking-item" *ngIf="estimatedDelivery && status !== 'DELIVERED' && status !== 'CANCELLED'">
+          <span class="tracking-tag">Est. Delivery</span>
+          <strong class="est-date">{{ estimatedDelivery | date:'EEE, dd MMM yyyy' }}</strong>
+        </div>
+      </div>
+
+      <!-- Expandable Tracking History Log -->
+      <div class="history-toggle-row" *ngIf="statusHistory && statusHistory.length > 0">
+        <button type="button" class="history-toggle-btn" (click)="toggleHistory()">
+          <span>{{ showHistory() ? 'Hide' : 'View' }} Tracking Milestones ({{ statusHistory.length }})</span>
+          <span class="chevron" [class.open]="showHistory()">▾</span>
+        </button>
+      </div>
+
+      <div class="history-log" *ngIf="showHistory() && statusHistory && statusHistory.length > 0">
+        <div class="history-event" *ngFor="let ev of statusHistory">
+          <div class="event-bullet" [class.cancelled]="ev.status === 'CANCELLED'"></div>
+          <div class="event-content">
+            <div class="event-header">
+              <span class="event-status">{{ ev.status }}</span>
+              <span class="event-date">{{ ev.changedAt | date:'dd MMM yyyy, hh:mm a' }}</span>
+            </div>
+            <p class="event-note">{{ ev.note }}</p>
+          </div>
+        </div>
       </div>
     </div>
-
-    <ng-template #cancelledState>
-      <div class="order-timeline cancelled">
-        <div class="cancelled-icon">✕</div>
-        <span class="cancelled-label">{{ cancelledText }}</span>
-      </div>
-    </ng-template>
   `,
   styles: [`
+    .timeline-container {
+      width: 100%;
+    }
     .order-timeline {
       display: flex;
       align-items: flex-start;
@@ -71,82 +118,213 @@ const STEPS: TimelineStep[] = [
       text-align: center;
     }
     .step-dot {
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: var(--zn-border, #e2e8f0);
-      color: var(--zn-text-muted, #64748b);
+      background: rgba(255, 255, 255, 0.08);
+      color: #8B92A8;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       font-weight: 700;
       z-index: 1;
-      transition: background 0.25s ease, color 0.25s ease;
+      transition: all 0.25s ease;
     }
-    .step-dot svg { width: 14px; height: 14px; }
+    .step-dot svg { width: 15px; height: 15px; }
     .timeline-step.done .step-dot {
-      background: var(--zn-primary, #6366f1);
+      background: #FF3D71;
       color: #fff;
+      box-shadow: 0 0 12px rgba(255, 61, 113, 0.4);
     }
     .timeline-step.current .step-dot {
-      box-shadow: 0 0 0 4px var(--zn-primary-light, #eef2ff);
+      background: #FF3D71;
+      color: #fff;
+      box-shadow: 0 0 0 4px rgba(255, 61, 113, 0.2);
     }
     .step-label {
       margin-top: 0.5rem;
-      font-size: 0.78rem;
-      color: var(--zn-text-muted, #64748b);
+      font-size: 0.8rem;
+      color: #8B92A8;
       font-weight: 500;
     }
     .timeline-step.done .step-label {
-      color: var(--zn-text-main, #1e293b);
+      color: #F5F5F7;
       font-weight: 700;
+    }
+    .step-time {
+      font-size: 0.72rem;
+      color: #8B92A8;
+      margin-top: 2px;
     }
     .step-line {
       position: absolute;
-      top: 15px;
+      top: 16px;
       left: 50%;
       width: 100%;
       height: 2px;
-      background: var(--zn-border, #e2e8f0);
+      background: rgba(245, 245, 247, 0.12);
       z-index: 0;
     }
-    /* The line AFTER the current step stays grey: it used to be coloured as well, which drew
-       progress all the way to a step the order had not reached yet. */
     .timeline-step.line-done .step-line {
-      background: var(--zn-primary, #6366f1);
+      background: #FF3D71;
     }
 
     .order-timeline.cancelled {
       align-items: center;
       justify-content: center;
-      gap: 0.6rem;
+      gap: 0.75rem;
       padding: 1rem;
-      background: var(--zn-danger-bg, #fef2f2);
-      border-radius: var(--zn-radius-md, 10px);
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 12px;
     }
     .cancelled-icon {
-      width: 28px;
-      height: 28px;
+      width: 30px;
+      height: 30px;
       flex-shrink: 0;
       border-radius: 50%;
-      background: var(--zn-danger, #dc2626);
+      background: #ef4444;
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
+      font-size: 1rem;
+    }
+    .cancelled-info {
+      display: flex;
+      flex-direction: column;
     }
     .cancelled-label {
-      color: var(--zn-danger, #dc2626);
+      color: #ef4444;
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.92rem;
+    }
+
+    /* Tracking info bar */
+    .tracking-infobar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 0.75rem 1rem;
+      margin-top: 0.75rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(245, 245, 247, 0.08);
+      border-radius: 10px;
+      font-size: 0.85rem;
+    }
+    .tracking-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .tracking-tag {
+      color: #8B92A8;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .tracking-num {
+      background: rgba(255, 61, 113, 0.1);
+      color: #FF3D71;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: 600;
+    }
+    .est-date {
+      color: #22c55e;
+    }
+
+    /* History toggle & log */
+    .history-toggle-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 0.5rem;
+    }
+    .history-toggle-btn {
+      background: none;
+      border: none;
+      color: #8B92A8;
+      font-size: 0.78rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .history-toggle-btn:hover {
+      color: #FF3D71;
+    }
+    .chevron {
+      display: inline-block;
+      transition: transform 0.2s;
+    }
+    .chevron.open {
+      transform: rotate(180deg);
+    }
+    .history-log {
+      margin-top: 0.75rem;
+      padding: 0.85rem 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      border-left: 3px solid #FF3D71;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .history-event {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+    .event-bullet {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #FF3D71;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .event-bullet.cancelled {
+      background: #ef4444;
+    }
+    .event-content {
+      flex: 1;
+    }
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+    }
+    .event-status {
+      font-weight: 700;
+      color: #F5F5F7;
+    }
+    .event-date {
+      color: #8B92A8;
+    }
+    .event-note {
+      margin: 2px 0 0;
+      font-size: 0.8rem;
+      color: #B8BFD4;
     }
   `]
 })
 export class OrderTimeline {
   @Input() status: string = 'PENDING';
   @Input() paymentStatus: string | null = null;
+  @Input() statusHistory: OrderStatusHistoryResponse[] = [];
+  @Input() carrier?: string | null = null;
+  @Input() trackingNumber?: string | null = null;
+  @Input() estimatedDelivery?: string | null = null;
+
+  showHistory = signal(false);
 
   steps = STEPS;
 
@@ -155,12 +333,10 @@ export class OrderTimeline {
     return idx === -1 ? 0 : idx;
   }
 
-  // Delivered is the end: every step, including the last, shows a tick (the last one used to show "4").
   isComplete(i: number): boolean {
     return this.status === 'DELIVERED' || i < this.currentIndex;
   }
 
-  // A still-PENDING order with a PENDING payment is a card order waiting for payment.
   labelFor(step: TimelineStep, i: number): string {
     if (i === 0 && this.status === 'PENDING' && this.paymentStatus === 'PENDING') {
       return 'Awaiting payment';
@@ -172,10 +348,20 @@ export class OrderTimeline {
     return this.labelFor(STEPS[this.currentIndex], this.currentIndex);
   }
 
-get cancelledText(): string {
-  if (this.paymentStatus === 'REFUNDED') return 'This order was cancelled. Your payment was refunded.';
-  return this.paymentStatus === 'REFUND_PENDING'
-    ? 'This order was cancelled. Your refund is being processed.'
-    : 'This order was cancelled';
-}
+  timestampFor(statusKey: string): string | null {
+    if (!this.statusHistory || this.statusHistory.length === 0) return null;
+    const match = this.statusHistory.find(h => h.status === statusKey);
+    return match ? match.changedAt : null;
+  }
+
+  toggleHistory(): void {
+    this.showHistory.update(v => !v);
+  }
+
+  get cancelledText(): string {
+    if (this.paymentStatus === 'REFUNDED') return 'This order was cancelled. Your payment was refunded.';
+    return this.paymentStatus === 'REFUND_PENDING'
+      ? 'This order was cancelled. Your refund is being processed.'
+      : 'This order was cancelled';
+  }
 }

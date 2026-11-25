@@ -352,8 +352,39 @@ export class AdminDashboard implements OnInit {
     this.orders.update(list => list.map(o => ({ ...o })));
   }
 
+  // --- Dispatch Modal State ---
+  isDispatchModalOpen = signal(false);
+  dispatchOrderId = signal<number | null>(null);
+  dispatchCarrier = 'BlueDart';
+  dispatchTrackingNumber = '';
+
+  openDispatchModal(orderId: number): void {
+    this.dispatchOrderId.set(orderId);
+    this.dispatchCarrier = 'BlueDart';
+    this.dispatchTrackingNumber = '';
+    this.isDispatchModalOpen.set(true);
+  }
+
+  closeDispatchModal(): void {
+    this.isDispatchModalOpen.set(false);
+    this.resetOrderRows();
+  }
+
+  confirmDispatch(): void {
+    if (this.dispatchOrderId()) {
+      const id = this.dispatchOrderId()!;
+      this.isDispatchModalOpen.set(false);
+      this.updateOrderStatus(id, 'SHIPPED', this.dispatchCarrier, this.dispatchTrackingNumber);
+    }
+  }
+
   // Called by the status dropdown. Risky changes ask first.
   async onOrderStatusChange(order: OrderResponse, status: string): Promise<void> {
+    if (status === 'SHIPPED') {
+      this.openDispatchModal(order.orderId);
+      return;
+    }
+
     if (status === 'CANCELLED') {
       const paidNote = order.paymentStatus === 'PAID'
         ? ' The customer has already paid, so the payment will need a refund.'
@@ -382,9 +413,9 @@ export class AdminDashboard implements OnInit {
     this.updateOrderStatus(order.orderId, status);
   }
 
-  updateOrderStatus(orderId: number, status: string): void {
+  updateOrderStatus(orderId: number, status: string, carrier?: string, trackingNumber?: string): void {
     this.updatingOrderId.set(orderId);
-    this.orderService.updateOrderStatus(orderId, status).subscribe({
+    this.orderService.updateOrderStatus(orderId, status, carrier, trackingNumber).subscribe({
       next: (res) => {
         this.updatingOrderId.set(null);
         // Use the server's answer: delivering a COD order also flips its payment to PAID.
