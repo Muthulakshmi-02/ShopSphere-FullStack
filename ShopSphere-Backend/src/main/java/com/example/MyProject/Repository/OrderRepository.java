@@ -20,6 +20,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByUser_UserIdOrderByOrderDateDesc(Long userId);
 
+    long countByUser_UserId(Long userId);
+
     List<Order> findAllByOrderByOrderDateDesc();
 
     // One query that brings each order's lines AND their products (the plain finders above
