@@ -64,9 +64,38 @@
     </div>
   </header>
 
-  <!-- Modern Shop Layout -->
-  <div class="shop-layout">
-    <!-- Glass Filter Sidebar -->
+  <!-- Price Range Filter -->
+  <div class="filter-group price-filter">
+    <label class="filter-label">Price Range</label>
+    <div class="price-inputs">
+      <input type="number" min="0" [value]="priceRange()[0]" (input)="priceRange.set([$any($event.target).valueAsNumber, priceRange()[1]])" placeholder="Min" class="price-input" />
+      <span class="price-separator">–</span>
+      <input type="number" min="0" [value]="priceRange()[1]" (input)="priceRange.set([priceRange()[0], $any($event.target).valueAsNumber])" placeholder="Max" class="price-input" />
+    </div>
+    <button class="btn-apply" (click)="onPriceRangeChange()">Apply</button>
+  </div>
+
+    <!-- Rating Filter -->
+      <div class="filter-group rating-filter">
+        <label class="filter-label">Rating</label>
+        <div class="rating-chips">
+          <button *ngFor="let r of [5,4,3,2,1]" class="rating-chip" [class.active]="ratingFilter() === r" (click)="setRatingFilter(r)">★{{r}}</button>
+          <button class="rating-chip clear" [class.active]="ratingFilter() === null" (click)="setRatingFilter(null)">All</button>
+        </div>
+      </div>
+
+      <!-- Stock Status Filter -->
+      <div class="filter-group stock-filter">
+        <label class="filter-label">Stock</label>
+        <div class="stock-chips">
+          <button class="stock-chip" [class.active]="stockFilter() === 'ALL'" (click)="setStockFilter('ALL')">All</button>
+          <button class="stock-chip" [class.active]="stockFilter() === 'IN'" (click)="setStockFilter('IN')">In Stock</button>
+          <button class="stock-chip" [class.active]="stockFilter() === 'LOW'" (click)="setStockFilter('LOW')">Low Stock</button>
+          <button class="stock-chip" [class.active]="stockFilter() === 'OUT'" (click)="setStockFilter('OUT')">Out of Stock</button>
+        </div>
+      </div>
+
+      <!-- Glass Filter Sidebar -->
     <aside class="filter-sidebar glass-card">
       <div class="filter-header">
         <h3>Categories</h3>
@@ -110,7 +139,7 @@
 
       @if (products().length > 0) {
       <div class="product-grid">
-        <article class="product-card glass-card" *ngFor="let p of products(); trackBy: trackByProductId">
+        <article class="product-card glass-card" *ngFor="let p of filteredProducts(); trackBy: trackByProductId">
           <div class="image-container">
             <!-- CHANGED: the picture is now a link to the product page. The card looked clickable
                  (pointer cursor, hover lift) but only the small product name was. -->

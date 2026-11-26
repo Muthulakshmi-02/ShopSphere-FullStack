@@ -52,6 +52,56 @@ export class ProductDashboard implements OnInit {
   currentPage = signal<number>(0);
   pageSize = signal<number>(12);
 
+  // Stock status filter (ALL, IN, LOW, OUT)
+  stockFilter = signal<string>('ALL');
+
+  // Helper to set stock filter and reset pagination
+  setStockFilter(filter: string): void {
+    this.stockFilter.set(filter);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
+
+  // Derived list after applying rating filter
+  filteredProducts = computed<ProductResponse[]>(() => {
+    const list = this.products();
+    const rating = this.ratingFilter();
+    if (rating === null) return list;
+    return list.filter(p => {
+      const r = Math.round(p.rating?.rate ?? 0);
+      return r === rating;
+    });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
+  });
+
+
   // CHANGED: "1 2 3 … 12" instead of one button per page.
   pageItems = computed<(number | '…')[]>(() => {
     const total = this.totalPages();
@@ -65,6 +115,34 @@ export class ProductDashboard implements OnInit {
       if (i > 0 && p - sorted[i - 1] > 1) out.push('…');
       out.push(p);
     });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
     return out;
   });
 
@@ -108,11 +186,67 @@ export class ProductDashboard implements OnInit {
       this.selectedSort.set(params['sort'] || 'price,asc');
     });
 
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
+
     // Wishlist is a per-customer feature, so only fetch it for a logged-in customer.
     if (this.authService.isLoggedIn() && !this.authService.isAdmin()) {
       this.wishlistService.loadWishlistIds().subscribe({
         error: (err) => console.error('Failed to load wishlist', err),
       });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
     }
   }
 
@@ -121,6 +255,34 @@ export class ProductDashboard implements OnInit {
       next: (res) => this.categories.set(res.data || []),
       error: (err) => console.error('Failed to load categories', err),
     });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
   }
 
   loadProducts() {
@@ -132,11 +294,12 @@ export class ProductDashboard implements OnInit {
       .getFilteredProducts(
         this.searchKeyword() || '',
         this.selectedCategory(),
-        0,
-        1_000_000,
+        this.priceRange()[0],
+        this.priceRange()[1],
         this.currentPage(),
         this.pageSize(),
         this.selectedSort() || 'price,asc',
+        this.stockFilter(),
       )
       .subscribe({
         next: (res) => {
@@ -159,6 +322,34 @@ export class ProductDashboard implements OnInit {
           this.loadError.set(true);
         },
       });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
   }
 
   // ---------- Event handlers ----------
@@ -181,7 +372,17 @@ export class ProductDashboard implements OnInit {
   // NEW: the hero's "Shop Collections" link used href="#product-grid". In an Angular app that
   // resolves against the base URL (it goes to "/#product-grid"), so it could leave this page
   // instead of scrolling. This scrolls smoothly and stays put.
-  scrollToGrid(event?: Event): void {
+  onPriceRangeChange(): void {
+    // Sync the combined range signal with the individual min/max signals
+    const [min, max] = this.priceRange();
+    this.priceMin.set(min);
+    this.priceMax.set(max);
+    // Reset to first page when price filter changes
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
+
+
     event?.preventDefault();
     if (typeof document === 'undefined') return;
     document.getElementById('product-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -231,6 +432,34 @@ export class ProductDashboard implements OnInit {
       },
       error: (err) => this.toastService.error(err.error?.message || 'Could not update wishlist.'),
     });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
   }
 
   // ---------- Pricing ----------
@@ -263,6 +492,34 @@ export class ProductDashboard implements OnInit {
         this.toastService.error(err.error?.message || 'Could not add item to cart.');
       }
     });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
   }
 
   buyNow(productId: number): void {
@@ -279,6 +536,34 @@ export class ProductDashboard implements OnInit {
     this.router.navigate(['/checkout'], {
       queryParams: { buyNow: productId, quantity: 1 }
     });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
   }
 
   // ---------- Paging & Helpers ----------
@@ -327,5 +612,33 @@ export class ProductDashboard implements OnInit {
       },
       replaceUrl: true,
     });
+
+  // Selected products for comparison (max 4)
+  selectedForCompare = signal<number[]>([]);
+
+  // Toggle a product's selection for comparison
+  toggleComparison(productId: number): void {
+    const current = this.selectedForCompare();
+    if (current.includes(productId)) {
+      this.selectedForCompare.set(current.filter(id => id !== productId));
+    } else if (current.length < 4) {
+      this.selectedForCompare.set([...current, productId]);
+    } else {
+      this.toastService.warn('You can compare up to 4 products');
+    }
+  }
+
+  // Navigate to comparison view
+  goToCompare(): void {
+    const ids = this.selectedForCompare().join(',');
+    this.router.navigate(['/compare'], { queryParams: { ids } });
+  }
+
+
+  setRatingFilter(rating: number | null): void {
+    this.ratingFilter.set(rating);
+    this.currentPage.set(0);
+    this.loadProducts();
+  }
   }
 }
