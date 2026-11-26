@@ -213,7 +213,7 @@ export class ProductDashboard implements OnInit {
     } else if (current.length < 4) {
       this.selectedForCompare.set([...current, productId]);
     } else {
-      this.toastService.warn('You can compare up to 4 products');
+      this.toastService.info('You can compare up to 4 products');
     }
   }
 
