@@ -1,0 +1,311 @@
+<div class="profile-container">
+
+  <!-- Overview Header Card -->
+  <header class="profile-hero">
+    <div class="hero-left">
+      <div class="profile-avatar">
+        {{ auth.userInitials() }}
+      </div>
+      <div class="hero-user-details">
+        <h1 class="user-display-name">{{ profile()?.userName || auth.currentUser()?.userName }}</h1>
+        <p class="user-display-email">{{ profile()?.email || 'Account Member' }}</p>
+        <div class="role-badge" [class.admin]="profile()?.role === 'ADMIN'">
+          <mat-icon class="badge-icon">{{ profile()?.role === 'ADMIN' ? 'admin_panel_settings' : 'verified_user' }}</mat-icon>
+          <span>{{ profile()?.role === 'ADMIN' ? 'Administrator' : 'Verified Shopper' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Stat Badges -->
+    <div class="hero-stats">
+      <a routerLink="/my-orders" class="stat-card">
+        <div class="stat-number">{{ profile()?.totalOrders ?? 0 }}</div>
+        <div class="stat-label">Orders Placed</div>
+      </a>
+      <a routerLink="/wishlist" class="stat-card">
+        <div class="stat-number">{{ profile()?.totalWishlist ?? 0 }}</div>
+        <div class="stat-label">Wishlist Items</div>
+      </a>
+      <button class="stat-card" (click)="activeTab.set('addresses')">
+        <div class="stat-number">{{ addresses().length }}</div>
+        <div class="stat-label">Saved Addresses</div>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="profile-tabs">
+    <button class="tab-btn" [class.active]="activeTab() === 'profile'" (click)="activeTab.set('profile')">
+      <mat-icon>person</mat-icon>
+      <span>Personal Info</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'addresses'" (click)="activeTab.set('addresses')">
+      <mat-icon>location_on</mat-icon>
+      <span>Address Book</span>
+      <span class="tab-count-pill">{{ addresses().length }}</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'security'" (click)="activeTab.set('security')">
+      <mat-icon>lock</mat-icon>
+      <span>Security & Password</span>
+    </button>
+  </nav>
+
+  <!-- TAB 1: PERSONAL INFO -->
+  <section class="tab-content" *ngIf="activeTab() === 'profile'">
+    <div class="content-card">
+      <div class="card-header">
+        <div>
+          <h2>Account Details</h2>
+          <p class="card-subtitle">Manage your personal identification and profile preferences</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Full Display Name</label>
+          <div class="input-with-button">
+            <input type="text" class="input" [(ngModel)]="editUsername" placeholder="Enter username..." />
+            <button class="btn primary" (click)="saveProfileUsername()" [disabled]="savingProfile()">
+              {{ savingProfile() ? 'Saving...' : 'Update' }}
+            </button>
+          </div>
+          <span class="field-hint">Visible on your order invoices and community reviews</span>
+        </div>
+
+        <div class="form-group">
+          <label>Registered Email Address</label>
+          <div class="readonly-input">
+            <mat-icon class="input-icon">mail</mat-icon>
+            <span>{{ profile()?.email }}</span>
+            <span class="verified-tag">✓ Primary</span>
+          </div>
+          <span class="field-hint">Used for order receipts, tracking notifications, and security alerts</span>
+        </div>
+      </div>
+
+      <!-- Quick Shortcuts -->
+      <div class="shortcuts-row">
+        <a routerLink="/my-orders" class="shortcut-box">
+          <mat-icon class="shortcut-icon">receipt_long</mat-icon>
+          <div>
+            <strong>My Order History</strong>
+            <p>Track packages, milestones & download tax invoices</p>
+          </div>
+          <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+        </a>
+
+        <a routerLink="/wishlist" class="shortcut-box">
+          <mat-icon class="shortcut-icon">favorite</mat-icon>
+          <div>
+            <strong>Saved Wishlist</strong>
+            <p>View your saved products and favorite collections</p>
+          </div>
+          <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: ADDRESS BOOK -->
+  <section class="tab-content" *ngIf="activeTab() === 'addresses'">
+    <div class="content-card">
+      <div class="card-header space-between">
+        <div>
+          <h2>Delivery Addresses</h2>
+          <p class="card-subtitle">Manage multiple shipping addresses for 1-click checkout</p>
+        </div>
+        <button class="btn primary" (click)="openAddAddressModal()">
+          <mat-icon>add</mat-icon>
+          <span>Add New Address</span>
+        </button>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="loadingAddresses()" class="loading-box">
+        <div class="spinner"></div>
+        <span>Loading your addresses...</span>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!loadingAddresses() && addresses().length === 0" class="empty-state">
+        <mat-icon class="empty-icon">home_work</mat-icon>
+        <h3>No addresses saved yet</h3>
+        <p>Save home and work addresses to make placing future orders effortless.</p>
+        <button class="btn primary" (click)="openAddAddressModal()">Add Your First Address</button>
+      </div>
+
+      <!-- Address Grid -->
+      <div class="address-grid" *ngIf="!loadingAddresses() && addresses().length > 0">
+        <div class="address-card" *ngFor="let addr of addresses()" [class.is-default]="addr.isDefault">
+          <div class="addr-card-top">
+            <div class="addr-label-group">
+              <span class="addr-label-badge">{{ addr.label || 'Home' }}</span>
+              <span class="default-badge" *ngIf="addr.isDefault">
+                <mat-icon>check_circle</mat-icon>
+                <span>Default Delivery</span>
+              </span>
+            </div>
+            <div class="addr-actions">
+              <button class="icon-btn" (click)="openEditAddressModal(addr)" title="Edit address">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button class="icon-btn delete" (click)="deleteAddress(addr)" [disabled]="deletingAddressId() === addr.addressId" title="Delete address">
+                <mat-icon>{{ deletingAddressId() === addr.addressId ? 'hourglass_empty' : 'delete' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="addr-body">
+            <p class="addr-street">{{ addr.shippingAddress }}</p>
+            <p class="addr-city-zip">{{ addr.city }}, {{ addr.state }} - <strong>{{ addr.zipCode }}</strong></p>
+            <p class="addr-phone">
+              <mat-icon class="phone-icon">call</mat-icon>
+              <span>+91 {{ addr.phoneNumber }}</span>
+            </p>
+          </div>
+
+          <div class="addr-card-footer">
+            <button class="btn-link set-default-btn" *ngIf="!addr.isDefault"
+              [disabled]="settingDefaultId() === addr.addressId"
+              (click)="setDefaultAddress(addr)">
+              {{ settingDefaultId() === addr.addressId ? 'Setting default...' : 'Set as Default' }}
+            </button>
+            <span class="default-confirmed" *ngIf="addr.isDefault">
+              Primary shipping destination
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: SECURITY & PASSWORD -->
+  <section class="tab-content" *ngIf="activeTab() === 'security'">
+    <div class="content-card">
+      <div class="card-header">
+        <div>
+          <h2>Security & Password</h2>
+          <p class="card-subtitle">Keep your ShopSphere account secure by using a strong password</p>
+        </div>
+      </div>
+
+      <div class="security-form-container">
+        <div class="security-form">
+          <div class="form-group">
+            <label>Current Password</label>
+            <div class="password-input-wrapper">
+              <input [type]="showCurrentPassword() ? 'text' : 'password'" class="input"
+                [(ngModel)]="passwordForm.currentPassword" placeholder="Enter current password" />
+              <button type="button" class="eye-btn" (click)="showCurrentPassword.set(!showCurrentPassword())">
+                <mat-icon>{{ showCurrentPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>New Password</label>
+            <div class="password-input-wrapper">
+              <input [type]="showNewPassword() ? 'text' : 'password'" class="input"
+                [(ngModel)]="passwordForm.newPassword" placeholder="Minimum 8 characters" />
+              <button type="button" class="eye-btn" (click)="showNewPassword.set(!showNewPassword())">
+                <mat-icon>{{ showNewPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </div>
+            <span class="field-hint">Must contain at least 8 characters</span>
+          </div>
+
+          <div class="form-group">
+            <label>Confirm New Password</label>
+            <input type="password" class="input" [(ngModel)]="passwordForm.confirmPassword"
+              placeholder="Re-enter new password" />
+          </div>
+
+          <button class="btn primary" (click)="submitPasswordChange()" [disabled]="changingPassword()">
+            <mat-icon>lock_reset</mat-icon>
+            <span>{{ changingPassword() ? 'Changing Password...' : 'Update Password' }}</span>
+          </button>
+        </div>
+
+        <div class="security-tips">
+          <h4>
+            <mat-icon class="shield-icon">shield</mat-icon>
+            <span>Password Recommendations</span>
+          </h4>
+          <ul>
+            <li>Use at least 8 characters with a mix of letters and numbers.</li>
+            <li>Avoid using birthdays, names, or common words.</li>
+            <li>Do not reuse passwords across multiple shopping accounts.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ADDRESS MODAL -->
+  <div class="modal-backdrop" *ngIf="isAddressModalOpen()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>{{ isEditingAddress() ? 'Edit Delivery Address' : 'Add New Delivery Address' }}</h3>
+        <button class="icon-btn close-btn" (click)="closeAddressModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Address Label</label>
+          <div class="label-options">
+            <button type="button" class="label-chip" [class.selected]="addressForm.label === 'Home'"
+              (click)="addressForm.label = 'Home'">Home</button>
+            <button type="button" class="label-chip" [class.selected]="addressForm.label === 'Work'"
+              (click)="addressForm.label = 'Work'">Work</button>
+            <button type="button" class="label-chip" [class.selected]="addressForm.label === 'Other'"
+              (click)="addressForm.label = 'Other'">Other</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Street Address / Flat / Floor / Building</label>
+          <input type="text" class="input" [(ngModel)]="addressForm.shippingAddress"
+            placeholder="e.g. Flat 402, Sunset Towers, MG Road" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" class="input" [(ngModel)]="addressForm.city" placeholder="e.g. Bengaluru" />
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" class="input" [(ngModel)]="addressForm.state" placeholder="e.g. Karnataka" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Postal PIN Code</label>
+            <input type="text" class="input" [(ngModel)]="addressForm.zipCode" placeholder="6-digit PIN" maxlength="6" />
+          </div>
+          <div class="form-group">
+            <label>Contact Phone Number</label>
+            <input type="tel" class="input" [(ngModel)]="addressForm.phoneNumber" placeholder="10-digit mobile" maxlength="15" />
+          </div>
+        </div>
+
+        <div class="checkbox-group">
+          <label class="custom-checkbox">
+            <input type="checkbox" [(ngModel)]="addressForm.isDefault" />
+            <span class="checkmark"></span>
+            <span class="checkbox-text">Set as my default delivery address</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn ghost" (click)="closeAddressModal()">Cancel</button>
+        <button class="btn primary" (click)="saveAddress()" [disabled]="savingAddress()">
+          {{ savingAddress() ? 'Saving...' : (isEditingAddress() ? 'Update Address' : 'Save Address') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>

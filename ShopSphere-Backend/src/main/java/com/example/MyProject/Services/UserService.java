@@ -1,16 +1,24 @@
 package com.example.MyProject.Services;
 
+import com.example.MyProject.Address.dto.AddressResponse;
 import com.example.MyProject.Configuration.JwtUtil;
 import com.example.MyProject.Enum.Role;
+import com.example.MyProject.Exception.ResourceNotFoundException;
 import com.example.MyProject.Exception.TooManyRequestsException;
+import com.example.MyProject.Models.Address;
 import com.example.MyProject.Models.User;
+import com.example.MyProject.Repository.AddressRepository;
+import com.example.MyProject.Repository.OrderRepository;
 import com.example.MyProject.Repository.UserRepository;
+import com.example.MyProject.Repository.WishlistRepository;
 import com.example.MyProject.User.Dto.*;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -31,6 +39,9 @@ public class UserService {
     private static final Duration LOGIN_WINDOW = Duration.ofMinutes(15);
 
     private final UserRepository userRepository;
+    private final OrderRepository orderRepository;
+    private final WishlistRepository wishlistRepository;
+    private final AddressRepository addressRepository;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     private final MessageSource messageSource;
@@ -144,6 +155,102 @@ public class UserService {
                 .userName(user.getUserName())
                 .email(user.getEmail())
                 .role(user.getRole())
+                .build();
+    }
+
+    public User getAuthenticatedUser() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResourceNotFoundException("No authenticated user found");
+        }
+        Object principal = authentication.getPrincipal();
+        String email = (principal instanceof UserDetails)
+                ? ((UserDetails) principal).getUsername()
+                : principal.toString();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public ApiResponse<UserProfileResponse> getUserProfile() {
+        User user = getAuthenticatedUser();
+        long orderCount = orderRepository.countByUser_UserId(user.getUserId());
+        long wishlistCount = wishlistRepository.countByUser_UserId(user.getUserId());
+        long addressCount = addressRepository.countByUser_UserId(user.getUserId());
+
+        AddressResponse defaultAddrResponse = addressRepository.findByUser_UserIdAndIsDefaultTrue(user.getUserId())
+                .map(this::mapAddressToResponse)
+                .orElse(null);
+
+        UserProfileResponse response = UserProfileResponse.builder()
+                .userId(user.getUserId())
+                .userName(user.getUserName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .totalOrders(orderCount)
+                .totalWishlist(wishlistCount)
+                .totalAddresses((int) addressCount)
+                .defaultAddress(defaultAddrResponse)
+                .build();
+
+        return ApiResponse.<UserProfileResponse>builder()
+                .success(true)
+                .data(response)
+                .message("Profile fetched successfully")
+                .build();
+    }
+
+    @Transactional
+    public ApiResponse<UserProfileResponse> updateUserProfile(UpdateProfileRequest request) {
+        User user = getAuthenticatedUser();
+        String newName = request.getUserName().trim();
+        if (!newName.equalsIgnoreCase(user.getUserName())) {
+            if (userRepository.existsByUserName(newName)) {
+                return ApiResponse.<UserProfileResponse>builder()
+                        .success(false)
+                        .message("Username is already taken by another account.")
+                        .build();
+            }
+            user.setUserName(newName);
+            user = userRepository.save(user);
+        }
+        return getUserProfile();
+    }
+
+    @Transactional
+    public ApiResponse<Void> changePassword(ChangePasswordRequest request) {
+        User user = getAuthenticatedUser();
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            return ApiResponse.<Void>builder()
+                    .success(false)
+                    .message("Current password does not match our records.")
+                    .build();
+        }
+        if (request.getCurrentPassword().equals(request.getNewPassword())) {
+            return ApiResponse.<Void>builder()
+                    .success(false)
+                    .message("New password must be different from your current password.")
+                    .build();
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        return ApiResponse.<Void>builder()
+                .success(true)
+                .message("Password changed successfully.")
+                .build();
+    }
+
+    private AddressResponse mapAddressToResponse(Address address) {
+        return AddressResponse.builder()
+                .addressId(address.getAddressId())
+                .label(address.getLabel())
+                .shippingAddress(address.getShippingAddress())
+                .city(address.getCity())
+                .state(address.getState())
+                .zipCode(address.getZipCode())
+                .phoneNumber(address.getPhoneNumber())
+                .isDefault(address.isDefault())
                 .build();
     }
 }

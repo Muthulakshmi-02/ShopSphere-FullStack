@@ -28,6 +28,7 @@ export const routes: Routes = [
   { path: 'checkout', loadComponent: () => import('./Components/checkout/checkout').then(m => m.CheckoutPage), canActivate: [authGuard] },
   { path: 'order-success', loadComponent: () => import('./Components/order-succes/order-succes').then(m => m.OrderSuccess), canActivate: [authGuard] },
   { path: 'my-orders', loadComponent: () => import('./Components/my-orders-page/my-orders-page').then(m => m.MyOrdersPage), canActivate: [authGuard] },
+  { path: 'profile', loadComponent: () => import('./Components/profile/profile').then(m => m.ProfilePage), canActivate: [authGuard] },
 
   {
     path: 'admindashboard',

@@ -1,4 +1,6 @@
 
+import { AddressResponse } from './Address.model';
+
 export enum Role {
   ADMIN = 'ADMIN',
   USER = 'USER'
@@ -29,6 +31,26 @@ export interface UserResponseDTO {
   userName: string;
   email: string;
   role: Role;
+}
+
+export interface UserProfileResponse {
+  userId: number;
+  userName: string;
+  email: string;
+  role: Role;
+  totalOrders: number;
+  totalWishlist: number;
+  totalAddresses: number;
+  defaultAddress?: AddressResponse | null;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface UpdateProfileRequest {
+  userName: string;
 }
 
 export interface ApiResponse<T> {

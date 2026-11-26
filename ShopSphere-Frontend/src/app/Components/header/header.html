@@ -98,13 +98,15 @@
             <!-- Auth -->
             @if (isUserLoggedIn()) {
             <div class="user-profile">
-                <div class="avatar" [title]="auth.currentUser()?.userName">
-                    {{ auth.userInitials() }}
-                </div>
-                <div class="user-info">
-                    <div class="user-name">{{ auth.currentUser()?.userName }}</div>
-                    <div class="user-role">{{ isAdmin() ? 'Administrator' : 'Customer' }}</div>
-                </div>
+                <a routerLink="/profile" class="profile-link" title="My Profile & Addresses">
+                    <div class="avatar" [title]="auth.currentUser()?.userName">
+                        {{ auth.userInitials() }}
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">{{ auth.currentUser()?.userName }}</div>
+                        <div class="user-role">{{ isAdmin() ? 'Administrator' : 'Customer' }}</div>
+                    </div>
+                </a>
                 <button class="logout-btn" type="button" (click)="logout()" aria-label="Log out" title="Log out">
                     <svg class="logout-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path
@@ -158,6 +160,7 @@
         <a routerLink="/admindashboard" (click)="closeMobileMenu()">Admin dashboard</a>
         }
         @if (isUserLoggedIn()) {
+        <a routerLink="/profile" (click)="closeMobileMenu()">My Profile</a>
         <button type="button" (click)="logout()">Log out</button>
         }
     </nav>
