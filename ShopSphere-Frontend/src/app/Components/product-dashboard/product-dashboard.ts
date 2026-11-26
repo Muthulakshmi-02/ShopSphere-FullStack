@@ -51,6 +51,13 @@ export class ProductDashboard implements OnInit {
   searchKeyword = signal<string>('');
   selectedCategory = signal<number | null>(null);
   selectedSort = signal<string>('price,asc');
+  // Options for sorting the product list (used in template)
+  sortOptions: SortOption[] = [
+    { value: 'price,asc', label: 'Price: Low to High' },
+    { value: 'price,desc', label: 'Price: High to Low' },
+    { value: 'name,asc', label: 'Name: A to Z' },
+    { value: 'name,desc', label: 'Name: Z to A' }
+  ];
   currentPage = signal<number>(0);
   pageSize = signal<number>(12);
 
@@ -73,7 +80,7 @@ export class ProductDashboard implements OnInit {
     const list = this.products();
     const rating = this.ratingFilter();
     if (rating === null) return list;
-    return list.filter(p => Math.round(p.rating?.rate ?? 0) === rating);
+    return list.filter(p => Math.round(p.rating ?? 0) === rating);
   });
 
   pageItems = computed<(number | '…')[]>(() => {
