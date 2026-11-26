@@ -1147,3 +1147,54 @@
     background: rgba(255, 61, 113, 0.18);
     border-color: rgba(255, 61, 113, 0.5);
 }
+
+/* =====================================================================
+   PASTE THIS AT THE VERY END of product-dashboard.css (do not delete anything).
+   Optional tidy-up, once it works: delete the first ".sort-select" block (the second one overrides
+   it) and the unused ".recently-viewed-section", ".section-header", ".recently-grid", ".recent-card"
+   rules (nothing in the page uses them any more).
+   ===================================================================== */
+
+/* --- FIX: empty stars were almost white (#e2e8f0, a light-theme colour), so a 3-star rating looked
+   like five filled stars on the dark page. Same dim colour the product page uses. */
+.stars {
+    color: rgba(245, 245, 247, 0.18);
+}
+
+/* --- The product picture is now a link and must fill its box --- */
+.image-link {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* --- Hero "Trending Now" items are buttons now: reset the browser button look --- */
+button.floating-item {
+    display: block;
+    width: 100%;
+    border: none;
+    text-align: left;
+    color: inherit;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+button.floating-item:focus-visible,
+.hero-cta:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+/* --- Pagination gap ("1 2 3 … 12") --- */
+.page-gap {
+    color: #8B92A8;
+    padding: 0 4px;
+    user-select: none;
+}
+
+/* Keyboard users: show where the focus is on a card's picture link */
+.image-link:focus-visible {
+    outline: 3px solid #FF3D71;
+    outline-offset: -3px;
+    border-radius: 24px;
+}
