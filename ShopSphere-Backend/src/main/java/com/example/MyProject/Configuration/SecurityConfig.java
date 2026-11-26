@@ -74,6 +74,7 @@ public class SecurityConfig {
 
                         // Must come BEFORE the broader "POST /api/products/** -> ADMIN" rule (first match wins).
                         .requestMatchers(HttpMethod.POST, "/api/products/*/reviews").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/products/*/questions").authenticated()
 
                         .requestMatchers(HttpMethod.POST, "/api/categories/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
@@ -82,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/questions/**").hasRole("ADMIN")
 
                         .requestMatchers("/api/cart/**").hasRole("USER")
                         .requestMatchers("/api/addresses/**").hasRole("USER")

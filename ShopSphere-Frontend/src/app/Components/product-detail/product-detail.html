@@ -216,4 +216,129 @@
       No reviews yet - be the first to share your thoughts.
     </p>
   </section>
+
+  <!-- Questions & Answers Section -->
+  <section class="qa-section">
+    <div class="qa-header">
+      <div>
+        <h2>Questions & Answers</h2>
+        <p class="qa-subtitle">Have a question? Ask the community and the ShopSphere team.</p>
+      </div>
+
+      <button class="ask-btn" *ngIf="!showQuestionForm()" (click)="showQuestionForm.set(true)">
+        <mat-icon class="btn-icon">help_outline</mat-icon>
+        <span>Ask a Question</span>
+      </button>
+    </div>
+
+    <!-- Search Questions -->
+    <div class="qa-search-bar" *ngIf="questions().length > 0">
+      <mat-icon class="qa-search-icon">search</mat-icon>
+      <input type="text" class="qa-search-input" placeholder="Have a question? Search answers..."
+        [ngModel]="questionSearchQuery()" (ngModelChange)="questionSearchQuery.set($event)" />
+      <button class="clear-search-btn" *ngIf="questionSearchQuery()" (click)="questionSearchQuery.set('')">✕</button>
+    </div>
+
+    <!-- Ask Form -->
+    <div class="qa-form-card" *ngIf="showQuestionForm()">
+      <div class="qa-form-header">
+        <h4>Post a New Question</h4>
+        <button class="icon-close" (click)="showQuestionForm.set(false)">✕</button>
+      </div>
+
+      <ng-container *ngIf="auth.isLoggedIn(); else guestAskTpl">
+        <textarea [(ngModel)]="newQuestionText" rows="3" maxlength="1000" class="qa-textarea"
+          placeholder="e.g. Does this product include standard USB-C cable and adapter?"></textarea>
+        <div class="qa-form-footer">
+          <span class="char-count">{{ newQuestionText.length }}/1000</span>
+          <div class="form-btn-group">
+            <button class="btn ghost" (click)="showQuestionForm.set(false)" [disabled]="submittingQuestion()">Cancel</button>
+            <button class="btn primary" (click)="askQuestion()" [disabled]="submittingQuestion()">
+              {{ submittingQuestion() ? 'Posting...' : 'Post Question' }}
+            </button>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-template #guestAskTpl>
+        <p class="guest-gate-note">
+          Please <a routerLink="/login" [queryParams]="{ returnUrl: '/products/' + p.productId }">sign in</a> to ask questions.
+        </p>
+      </ng-template>
+    </div>
+
+    <!-- Loading Skeleton -->
+    <div class="qa-skeleton" *ngIf="questionsLoading()">
+      <div class="skeleton-qa-box" *ngFor="let i of [1,2]"></div>
+    </div>
+
+    <!-- Questions List -->
+    <div class="qa-list" *ngIf="!questionsLoading() && filteredQuestions().length > 0">
+      <div class="qa-card" *ngFor="let q of filteredQuestions()">
+        <!-- Question Row -->
+        <div class="qa-q-row">
+          <span class="q-badge">Q</span>
+          <div class="q-content">
+            <p class="q-text">{{ q.question }}</p>
+            <div class="q-meta">
+              <span class="q-asker">Asked by <strong>{{ q.askerName }}</strong></span>
+              <span>•</span>
+              <span class="q-date">{{ q.createdAt | date:'mediumDate' }}</span>
+              <button class="admin-del-btn" *ngIf="auth.isAdmin()" (click)="deleteQuestion(q)"
+                [disabled]="deletingQuestionId() === q.id" title="Delete Question">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Answer Row (if answered) -->
+        <div class="qa-a-row" *ngIf="q.answer">
+          <span class="a-badge">A</span>
+          <div class="a-content">
+            <p class="a-text">{{ q.answer }}</p>
+            <div class="a-meta">
+              <span class="verified-answer-chip">
+                <mat-icon>verified</mat-icon>
+                <span>{{ q.answeredBy || 'ShopSphere Staff' }}</span>
+              </span>
+              <span class="a-date">{{ q.answeredAt | date:'mediumDate' }}</span>
+              <button class="admin-edit-answer-btn" *ngIf="auth.isAdmin() && answeringQuestionId() !== q.id"
+                (click)="openAnswerForm(q)">Edit Answer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pending Answer status (if unanswered & not admin) -->
+        <div class="qa-pending-row" *ngIf="!q.answer && (!auth.isAdmin() || answeringQuestionId() !== q.id)">
+          <mat-icon class="pending-icon">hourglass_top</mat-icon>
+          <span>Waiting for response from the store support team.</span>
+          <button class="admin-answer-btn" *ngIf="auth.isAdmin()" (click)="openAnswerForm(q)">
+            Answer Question
+          </button>
+        </div>
+
+        <!-- Admin Inline Answer Form -->
+        <div class="qa-admin-answer-box" *ngIf="auth.isAdmin() && answeringQuestionId() === q.id">
+          <label>Official Store Response</label>
+          <textarea [(ngModel)]="answerText" rows="3" class="qa-textarea"
+            placeholder="Type verified product answer to be displayed publicly..."></textarea>
+          <div class="admin-answer-actions">
+            <button class="btn ghost small" (click)="cancelAnswer()" [disabled]="submittingAnswer()">Cancel</button>
+            <button class="btn primary small" (click)="submitAnswer(q.id)" [disabled]="submittingAnswer()">
+              {{ submittingAnswer() ? 'Publishing...' : 'Publish Answer' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="no-qa" *ngIf="!questionsLoading() && filteredQuestions().length === 0">
+      <mat-icon class="empty-qa-icon">forum</mat-icon>
+      <p>{{ questionSearchQuery() ? 'No answered questions match your search.' : 'Have a question about this product? Be the first to ask!' }}</p>
+      <button class="btn ghost small" *ngIf="!showQuestionForm() && !questionSearchQuery()"
+        (click)="showQuestionForm.set(true)">Ask a Question</button>
+    </div>
+  </section>
 </div>

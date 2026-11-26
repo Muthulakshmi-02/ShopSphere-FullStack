@@ -3,14 +3,18 @@ import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink, Router } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
+import { MatIconModule } from '@angular/material/icon';
 import { ProductService } from '../../Services/product-service';
 import { CartService } from '../../Services/cart-service';
 import { WishlistService } from '../../Services/wishlist-service';
 import { AuthService } from '../../Services/auth-service';
 import { ReviewService } from '../../Services/review-service';
+import { QuestionService } from '../../Services/question-service';
 import { ToastService } from '../../shared/toast/toast-service';
+import { ConfirmService } from '../../shared/confirm-modal/confirm-service';
 import { ProductResponse, ProductVariantResponse } from '../../Models/Product.model';
 import { ReviewResponse, ReviewEligibilityResponse } from '../../Models/Review.model';
+import { ProductQuestionResponse } from '../../Models/Question.model';
 import { productImageUrl } from '../../shared/api.config';
 
 // The server refuses a quantity above 99 (the cart and the order both enforce it).
@@ -19,7 +23,7 @@ const MAX_QUANTITY = 99;
 @Component({
   selector: 'app-product-detail',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, FormsModule, RouterLink],
+  imports: [CommonModule, CurrencyPipe, DatePipe, FormsModule, RouterLink, MatIconModule],
   templateUrl: './product-detail.html',
   styleUrls: ['./product-detail.css']
 })
@@ -28,9 +32,12 @@ export class ProductDetail implements OnInit {
   private productService = inject(ProductService);
   private cartService = inject(CartService);
   private wishlistService = inject(WishlistService);
-  private authService = inject(AuthService);
+  protected auth = inject(AuthService);
+  protected authService = this.auth;
   private reviewService = inject(ReviewService);
+  private questionService = inject(QuestionService);
   private toastService = inject(ToastService);
+  private confirmService = inject(ConfirmService);
   private titleService = inject(Title);
   private metaService = inject(Meta);
   private router = inject(Router);
@@ -148,6 +155,30 @@ export class ProductDetail implements OnInit {
   newReviewRating = signal(0);
   newReviewComment = '';
 
+  // --- Product Q&A ---
+  questions = signal<ProductQuestionResponse[]>([]);
+  questionsLoading = signal(true);
+  questionSearchQuery = signal('');
+  showQuestionForm = signal(false);
+  newQuestionText = '';
+  submittingQuestion = signal(false);
+
+  // Admin answering
+  answeringQuestionId = signal<number | null>(null);
+  answerText = '';
+  submittingAnswer = signal(false);
+  deletingQuestionId = signal<number | null>(null);
+
+  filteredQuestions = computed(() => {
+    const q = this.questionSearchQuery().trim().toLowerCase();
+    if (!q) return this.questions();
+    return this.questions().filter(item =>
+      item.question.toLowerCase().includes(q) ||
+      (item.answer && item.answer.toLowerCase().includes(q)) ||
+      item.askerName.toLowerCase().includes(q)
+    );
+  });
+
   ngOnInit(): void {
     const idParam = this.route.snapshot.paramMap.get('id');
     const productId = idParam ? Number(idParam) : NaN;
@@ -180,6 +211,7 @@ export class ProductDetail implements OnInit {
     });
 
     this.loadReviews(productId);
+    this.loadQuestions(productId);
 
     if (this.authService.isLoggedIn() && !this.authService.isAdmin()) {
       this.reviewService.checkEligibility(productId).subscribe({
@@ -374,6 +406,107 @@ export class ProductDetail implements OnInit {
       error: (err) => {
         this.submittingReview.set(false);
         this.toastService.error(err.error?.message || 'Could not submit your review.');
+      }
+    });
+  }
+
+  // ---------- Q&A ----------
+  loadQuestions(productId: number): void {
+    this.questionsLoading.set(true);
+    this.questionService.getQuestions(productId).subscribe({
+      next: (res) => {
+        this.questions.set(res.data || []);
+        this.questionsLoading.set(false);
+      },
+      error: () => {
+        this.questionsLoading.set(false);
+      }
+    });
+  }
+
+  askQuestion(): void {
+    const p = this.product();
+    if (!p) return;
+
+    const trimmed = this.newQuestionText.trim();
+    if (trimmed.length < 5) {
+      this.toastService.error('Please enter a question with at least 5 characters.');
+      return;
+    }
+
+    this.submittingQuestion.set(true);
+    this.questionService.askQuestion(p.productId, { question: trimmed }).subscribe({
+      next: (res) => {
+        this.submittingQuestion.set(false);
+        this.showQuestionForm.set(false);
+        this.newQuestionText = '';
+        if (res.data) {
+          this.questions.update(list => [res.data, ...list]);
+        }
+        this.toastService.success('Your question has been posted!');
+      },
+      error: (err) => {
+        this.submittingQuestion.set(false);
+        this.toastService.error(err.error?.message || 'Could not post question.');
+      }
+    });
+  }
+
+  openAnswerForm(q: ProductQuestionResponse): void {
+    this.answeringQuestionId.set(q.id);
+    this.answerText = q.answer || '';
+  }
+
+  cancelAnswer(): void {
+    this.answeringQuestionId.set(null);
+    this.answerText = '';
+  }
+
+  submitAnswer(questionId: number): void {
+    const trimmed = this.answerText.trim();
+    if (trimmed.length < 2) {
+      this.toastService.error('Answer must contain at least 2 characters.');
+      return;
+    }
+
+    this.submittingAnswer.set(true);
+    this.questionService.answerQuestion(questionId, { answer: trimmed }).subscribe({
+      next: (res) => {
+        this.submittingAnswer.set(false);
+        this.answeringQuestionId.set(null);
+        this.answerText = '';
+        if (res.data) {
+          const updated = res.data;
+          this.questions.update(list => list.map(q => q.id === questionId ? updated : q));
+        }
+        this.toastService.success('Answer published successfully.');
+      },
+      error: (err) => {
+        this.submittingAnswer.set(false);
+        this.toastService.error(err.error?.message || 'Could not publish answer.');
+      }
+    });
+  }
+
+  async deleteQuestion(q: ProductQuestionResponse): Promise<void> {
+    const confirmed = await this.confirmService.ask({
+      title: 'Delete Question?',
+      message: `Are you sure you want to permanently remove this question: "${q.question}"?`,
+      confirmLabel: 'Delete Question',
+      danger: true
+    });
+    if (!confirmed) return;
+
+    this.deletingQuestionId.set(q.id);
+    this.questionService.deleteQuestion(q.id).subscribe({
+      next: () => {
+        this.deletingQuestionId.set(null);
+        this.questions.update(list => list.filter(item => item.id !== q.id));
+        this.toastService.success('Question deleted.');
+      },
+      error: (err) => {
+        this.deletingQuestionId.set(null);
+        this.toastService.error(err.error?.message || 'Could not delete question.');
       }
     });
   }
