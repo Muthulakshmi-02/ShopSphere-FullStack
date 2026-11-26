@@ -11,6 +11,7 @@ import {
   ProductResponse,
   ProductRequest,
   ProductStatus,
+  RestockRequest,
 } from '../../Models/Product.model';
 import {
   CategoryResponse,
@@ -174,6 +175,15 @@ export class AdminDashboard implements OnInit {
   // NEW: the order whose refund request is running
   refundingOrderId = signal<number | null>(null);
   searchTerm = signal('');
+  selectedStockFilter = signal<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
+
+  // --- Quick Restock Modal State ---
+  isRestockModalOpen = signal(false);
+  restockingProduct = signal<ProductResponse | null>(null);
+  restockQuantity = 10;
+  variantRestocks: Record<number, number> = {};
+  savingRestock = signal(false);
+
   page = signal(0);
   size = signal(10);
   totalPages = signal(0);
@@ -479,7 +489,16 @@ export class AdminDashboard implements OnInit {
     const requestId = ++this.productRequestId;
     this.loading.set(true);
     this.productService
-      .getFilteredProducts(this.searchTerm(), null, 0, 1_000_000, this.page(), this.size(), this.currentSort)
+      .getFilteredProducts(
+        this.searchTerm(),
+        null,
+        0,
+        1_000_000,
+        this.page(),
+        this.size(),
+        this.currentSort,
+        this.selectedStockFilter()
+      )
       .subscribe({
         next: (res) => {
           if (requestId !== this.productRequestId) return;   // a newer search already replaced this one
@@ -495,6 +514,84 @@ export class AdminDashboard implements OnInit {
           this.toastService.error('Could not load products.');
         },
       });
+  }
+
+  setStockFilter(filter: 'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'): void {
+    if (this.selectedStockFilter() === filter && filter !== 'ALL') {
+      this.selectedStockFilter.set('ALL');
+    } else {
+      this.selectedStockFilter.set(filter);
+    }
+    this.page.set(0);
+    this.loadProducts();
+  }
+
+  openRestockModal(p: ProductResponse): void {
+    this.restockingProduct.set(p);
+    this.restockQuantity = 10;
+    this.variantRestocks = {};
+    if (p.variants && p.variants.length > 0) {
+      for (const v of p.variants) {
+        this.variantRestocks[v.variantId] = 0;
+      }
+    }
+    this.isRestockModalOpen.set(true);
+  }
+
+  closeRestockModal(): void {
+    this.isRestockModalOpen.set(false);
+    this.restockingProduct.set(null);
+  }
+
+  addRestockIncrement(amount: number): void {
+    this.restockQuantity = Math.max(1, (this.restockQuantity || 0) + amount);
+  }
+
+  addVariantIncrement(variantId: number, amount: number): void {
+    this.variantRestocks[variantId] = Math.max(0, (this.variantRestocks[variantId] || 0) + amount);
+  }
+
+  confirmRestock(): void {
+    const p = this.restockingProduct();
+    if (!p) return;
+
+    const hasVariants = p.variants && p.variants.length > 0;
+    let payload: RestockRequest;
+
+    if (hasVariants) {
+      const totalToAdd = Object.values(this.variantRestocks).reduce((a, b) => a + b, 0);
+      if (totalToAdd <= 0) {
+        this.toastService.error('Please specify units to add for at least one variant.');
+        return;
+      }
+      payload = { variantRestocks: this.variantRestocks };
+    } else {
+      if (!this.restockQuantity || this.restockQuantity <= 0) {
+        this.toastService.error('Restock quantity must be at least 1 unit.');
+        return;
+      }
+      payload = { quantity: this.restockQuantity };
+    }
+
+    this.savingRestock.set(true);
+    this.productService.restockProduct(p.productId, payload).subscribe({
+      next: (res) => {
+        this.savingRestock.set(false);
+        this.isRestockModalOpen.set(false);
+        const updated = res.data;
+        if (updated) {
+          this.toastService.success(`Restocked ${p.name}. Total stock: ${updated.stock} units.`);
+        } else {
+          this.toastService.success(`Restocked inventory for ${p.name}.`);
+        }
+        this.loadProducts();
+        this.loadStats();
+      },
+      error: (err) => {
+        this.savingRestock.set(false);
+        this.toastService.error(err.error?.message || 'Could not restock product.');
+      }
+    });
   }
 
   loadCategories(): void {

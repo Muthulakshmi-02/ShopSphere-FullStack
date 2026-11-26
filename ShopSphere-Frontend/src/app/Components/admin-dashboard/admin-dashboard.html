@@ -122,29 +122,34 @@
 
         <!-- KPI Scorecards: real catalog-wide numbers from the server -->
         <div class="kpi-grid">
-          <div class="kpi-card">
+          <div class="kpi-card interactive" [class.filter-active]="selectedStockFilter() === 'ALL'" (click)="setStockFilter('ALL')" title="Show all products">
             <span class="kpi-label">📦 Total Catalog</span>
             <span class="kpi-value">{{ stats()?.total ?? totalElements() }}</span>
+            <span class="sub-text">Click to view all</span>
           </div>
 
-          <div class="kpi-card">
+          <div class="kpi-card interactive" [class.filter-active]="selectedStockFilter() === 'IN_STOCK'" (click)="setStockFilter('IN_STOCK')" title="Filter: In Stock">
             <span class="kpi-label">✅ In Stock</span>
             <span class="kpi-value text-green">{{ stats()?.inStock ?? 0 }}</span>
-            <!-- CHANGED: low-stock products are also "in stock", so say so -->
-            <span class="sub-text">Products (includes low stock)</span>
+            <span class="sub-text">Products with stock &gt; 0</span>
           </div>
 
-          <div class="kpi-card">
+          <div class="kpi-card interactive" [class.filter-active]="selectedStockFilter() === 'LOW_STOCK'" (click)="setStockFilter('LOW_STOCK')" title="Filter: Low Stock Alerts">
             <span class="kpi-label">⚠ Low Stock Alerts</span>
             <span class="kpi-value text-orange">{{ stats()?.lowStock ?? 0 }}</span>
             <span class="sub-text">Products with fewer than 10 left</span>
           </div>
 
-          <div class="kpi-card">
+          <div class="kpi-card interactive" [class.filter-active]="selectedStockFilter() === 'OUT_OF_STOCK'" (click)="setStockFilter('OUT_OF_STOCK')" title="Filter: Out Of Stock">
             <span class="kpi-label">❌ Out Of Stock</span>
             <span class="kpi-value text-red">{{ stats()?.outOfStock ?? 0 }}</span>
-            <span class="sub-text">Products</span>
+            <span class="sub-text">0 units remaining</span>
           </div>
+        </div>
+
+        <div class="active-stock-filter-pill" *ngIf="selectedStockFilter() !== 'ALL'">
+          <span>Active Filter: <strong>{{ selectedStockFilter() === 'LOW_STOCK' ? 'Low Stock Alerts (1-9 units)' : (selectedStockFilter() === 'OUT_OF_STOCK' ? 'Out of Stock (0 units)' : 'In Stock') }}</strong></span>
+          <button class="clear-stock-filter-btn" (click)="setStockFilter('ALL')">✕ Show All Products</button>
         </div>
 
         <div class="card">
@@ -220,6 +225,9 @@
                     </span>
                   </td>
                   <td class="text-right action-btns">
+                    <button class="btn restock-btn" [class.urgent]="p.stock < 10" (click)="openRestockModal(p)" title="Quickly add inventory units">
+                      ⚡ Restock
+                    </button>
                     <button class="btn ghost" (click)="openEditProduct(p)">Edit</button>
                     <button class="btn danger ghost" (click)="deleteProduct(p.productId)">Delete</button>
                   </td>
@@ -965,6 +973,91 @@
         <button class="btn ghost" (click)="closeDispatchModal()">Cancel</button>
         <button class="btn primary" (click)="confirmDispatch()">
           Mark as Shipped & Notify Customer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK RESTOCK MODAL -->
+  <div class="modal-backdrop" *ngIf="isRestockModalOpen()">
+    <div class="modal restock-modal">
+      <div class="modal-header">
+        <div>
+          <h2>Quick Inventory Restock</h2>
+          <p class="modal-sub">Replenish available stock units instantly without changing product attributes.</p>
+        </div>
+        <button class="icon-btn" (click)="closeRestockModal()" aria-label="Close">✕</button>
+      </div>
+
+      <div class="modal-body" *ngIf="restockingProduct() as p">
+        <!-- Product mini banner -->
+        <div class="restock-product-banner">
+          <img [src]="productImageUrl(p.imageUrl)" alt="{{ p.name }}" class="restock-thumb" />
+          <div class="restock-info">
+            <h4 class="restock-title">{{ p.name }}</h4>
+            <span class="restock-cat">{{ p.categoryName }}</span>
+            <div class="restock-current-stock">
+              <span>Current Available:</span>
+              <span class="badge" [class.badge-danger]="p.stock === 0"
+                [class.badge-warning]="p.stock > 0 && p.stock < 10" [class.badge-success]="p.stock >= 10">
+                {{ p.stock }} units
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- If Simple Product (no variants) -->
+        <div class="restock-simple" *ngIf="!p.variants || p.variants.length === 0">
+          <label class="field-label">Units to Add to Stock</label>
+          <div class="quick-increment-row">
+            <button type="button" class="inc-chip" (click)="addRestockIncrement(5)">+5</button>
+            <button type="button" class="inc-chip" (click)="addRestockIncrement(10)">+10</button>
+            <button type="button" class="inc-chip" (click)="addRestockIncrement(25)">+25</button>
+            <button type="button" class="inc-chip" (click)="addRestockIncrement(50)">+50</button>
+            <button type="button" class="inc-chip" (click)="addRestockIncrement(100)">+100</button>
+          </div>
+
+          <div class="input-stepper">
+            <button type="button" class="step-btn" (click)="addRestockIncrement(-1)" [disabled]="restockQuantity <= 1">−</button>
+            <input type="number" min="1" class="input text-center" [(ngModel)]="restockQuantity" />
+            <button type="button" class="step-btn" (click)="addRestockIncrement(1)">＋</button>
+          </div>
+
+          <div class="restock-preview">
+            <span>New Projected Stock:</span>
+            <strong>{{ p.stock + (restockQuantity || 0) }} units</strong>
+            <span class="text-green font-bold" *ngIf="p.stock + (restockQuantity || 0) > 0">
+              (Status: IN STOCK)
+            </span>
+          </div>
+        </div>
+
+        <!-- If Variant Product -->
+        <div class="restock-variants" *ngIf="p.variants && p.variants.length > 0">
+          <label class="field-label">Restock by Variant Configuration</label>
+          <p class="field-hint">Specify units to add for each size/color variant. Master product stock will update automatically.</p>
+
+          <div class="variant-restock-list">
+            <div class="variant-restock-item" *ngFor="let v of p.variants">
+              <div class="variant-meta">
+                <span class="variant-pill">{{ v.size || 'Standard' }} / {{ v.color || 'Standard' }}</span>
+                <span class="variant-curr-stock">Current: <strong>{{ v.stock }}</strong></span>
+              </div>
+              <div class="variant-inputs">
+                <button type="button" class="inc-chip-small" (click)="addVariantIncrement(v.variantId, 5)">+5</button>
+                <button type="button" class="inc-chip-small" (click)="addVariantIncrement(v.variantId, 10)">+10</button>
+                <input type="number" min="0" class="input variant-qty-input"
+                  [(ngModel)]="variantRestocks[v.variantId]" placeholder="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn ghost" (click)="closeRestockModal()">Cancel</button>
+        <button class="btn primary" (click)="confirmRestock()" [disabled]="savingRestock()">
+          {{ savingRestock() ? 'Updating Inventory...' : 'Confirm & Restock Inventory' }}
         </button>
       </div>
     </div>

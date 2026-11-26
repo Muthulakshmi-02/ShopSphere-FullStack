@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, of, tap } from 'rxjs';
 import { ApiResponse } from '../Models/User.model';
-import { ProductResponse, ProductRequest } from '../Models/Product.model';
+import { ProductResponse, ProductRequest, RestockRequest } from '../Models/Product.model';
 import { API_BASE_URL } from '../shared/api.config';
 
 // Generic Spring Data-style Page response
@@ -46,7 +46,8 @@ export class ProductService {
     maxPrice: number = 1000000,
     page: number = 0,
     size: number = 10,
-    sort: string = 'price,asc'
+    sort: string = 'price,asc',
+    stockFilter: string = 'ALL'
   ): Observable<ApiResponse<Page<ProductResponse>>> {
 
     let params = new HttpParams()
@@ -55,6 +56,10 @@ export class ProductService {
       .set('page', page.toString())
       .set('size', size.toString())
       .set('sort', sort);
+
+    if (stockFilter && stockFilter !== 'ALL') {
+      params = params.set('stockFilter', stockFilter);
+    }
 
     const trimmed = keyword?.trim();
     if (trimmed) {
@@ -123,6 +128,13 @@ export class ProductService {
   /** Catalog-wide stock counts for the admin Products tab. */
   getStats(): Observable<ApiResponse<ProductStats>> {
     return this.http.get<ApiResponse<ProductStats>>(`${this.ADMIN_URL}/stats`);
+  }
+
+  /** Quick restock product inventory (admin only). */
+  restockProduct(productId: number, request: RestockRequest): Observable<ApiResponse<ProductResponse>> {
+    return this.http.patch<ApiResponse<ProductResponse>>(`${this.API_URL}/${productId}/restock`, request).pipe(
+      tap(() => this.clearCache())
+    );
   }
 
   /** Clears all cached data — called after any admin write. */

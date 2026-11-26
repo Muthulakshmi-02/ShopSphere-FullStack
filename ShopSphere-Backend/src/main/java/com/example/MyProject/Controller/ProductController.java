@@ -2,6 +2,7 @@ package com.example.MyProject.Controller;
 
 import com.example.MyProject.Product.Dto.ProductRequest;
 import com.example.MyProject.Product.Dto.ProductResponse;
+import com.example.MyProject.Product.Dto.RestockRequest;
 import com.example.MyProject.Services.ProductService;
 import com.example.MyProject.User.Dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -50,6 +51,7 @@ public class ProductController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false, defaultValue = "0") Double minPrice,
             @RequestParam(required = false, defaultValue = "1000000") Double maxPrice,
+            @RequestParam(required = false, defaultValue = "ALL") String stockFilter,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             @RequestParam(defaultValue = "price,asc") String sort) {
@@ -66,7 +68,15 @@ public class ProductController {
         Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(direction, sortField));
 
         return ResponseEntity.ok(productService.getFilteredProducts(
-                keyword, categoryId, minPrice, maxPrice, pageable));
+                keyword, categoryId, minPrice, maxPrice, stockFilter, pageable));
+    }
+
+    @PatchMapping("/{id}/restock")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProductResponse>> restockProduct(
+            @PathVariable Long id,
+            @Valid @RequestBody RestockRequest request) {
+        return ResponseEntity.ok(productService.restockProduct(id, request));
     }
 
     @GetMapping("/{productId}")

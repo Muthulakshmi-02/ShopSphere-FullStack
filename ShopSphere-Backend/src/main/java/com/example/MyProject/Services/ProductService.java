@@ -10,6 +10,7 @@ import com.example.MyProject.Product.Dto.ProductRequest;
 import com.example.MyProject.Product.Dto.ProductResponse;
 import com.example.MyProject.Product.Dto.ProductVariantRequest;
 import com.example.MyProject.Product.Dto.ProductVariantResponse;
+import com.example.MyProject.Product.Dto.RestockRequest;
 import com.example.MyProject.Repository.CartItemRepository;
 import com.example.MyProject.Repository.CategoryRepository;
 import com.example.MyProject.Repository.OrderItemRepository;
@@ -50,12 +51,23 @@ public class ProductService {
     @Transactional(readOnly = true)
     public ApiResponse<Page<ProductResponse>> getFilteredProducts(
             String keyword, Long categoryId, Double min, Double max, Pageable pageable) {
+        return getFilteredProducts(keyword, categoryId, min, max, "ALL", pageable);
+    }
 
-        String search = (keyword == null) ? "" : keyword;
+    @Transactional(readOnly = true)
+    public ApiResponse<Page<ProductResponse>> getFilteredProducts(
+            String keyword, Long categoryId, Double min, Double max, String stockFilter, Pageable pageable) {
+
+        String search = (keyword == null) ? "" : keyword.trim();
         Page<Product> products;
 
-        // Filtering uses effectivePrice (what the customer pays), matching the sort order.
-        if (categoryId != null) {
+        if ("OUT_OF_STOCK".equalsIgnoreCase(stockFilter)) {
+            products = productRepository.findByNameContainingIgnoreCaseAndStockLessThanEqual(search, 0, pageable);
+        } else if ("LOW_STOCK".equalsIgnoreCase(stockFilter)) {
+            products = productRepository.findByNameContainingIgnoreCaseAndStockBetween(search, 1, 9, pageable);
+        } else if ("IN_STOCK".equalsIgnoreCase(stockFilter)) {
+            products = productRepository.findByNameContainingIgnoreCaseAndStockGreaterThan(search, 0, pageable);
+        } else if (categoryId != null) {
             products = productRepository.findByNameContainingIgnoreCaseAndCategory_CategoryIdAndEffectivePriceBetween(
                     search, categoryId, min, max, pageable);
         } else {
@@ -67,6 +79,33 @@ public class ProductService {
                 .success(true)
                 .data(products.map(this::mapToResponse))
                 .message(getMessage("product.list.success"))
+                .build();
+    }
+
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
+    @Transactional
+    public ApiResponse<ProductResponse> restockProduct(Long productId, RestockRequest request) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        if (request.getVariantRestocks() != null && !request.getVariantRestocks().isEmpty()) {
+            for (ProductVariant v : product.getVariants()) {
+                Integer toAdd = request.getVariantRestocks().get(v.getVariantId());
+                if (toAdd != null && toAdd > 0) {
+                    v.setStock((v.getStock() != null ? v.getStock() : 0) + toAdd);
+                }
+            }
+        } else if (request.getQuantity() != null && request.getQuantity() > 0) {
+            product.setStock(product.getStock() + request.getQuantity());
+        }
+
+        checkInventoryAndSetStatus(product);
+        Product saved = productRepository.save(product);
+
+        return ApiResponse.<ProductResponse>builder()
+                .success(true)
+                .data(mapToResponse(saved))
+                .message("Product inventory successfully restocked.")
                 .build();
     }
 

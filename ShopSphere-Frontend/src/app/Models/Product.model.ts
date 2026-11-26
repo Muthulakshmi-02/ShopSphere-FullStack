@@ -70,5 +70,10 @@ export interface ProductRequest {
   variants: ProductVariantRequest[];
 }
 
+export interface RestockRequest {
+  quantity?: number;
+  variantRestocks?: Record<number, number>;
+}
+
 // Shortcut alias for cleaner code in your components
 export type Product = ProductResponse;

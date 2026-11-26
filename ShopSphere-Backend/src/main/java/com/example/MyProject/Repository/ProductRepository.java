@@ -36,6 +36,18 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         Page<Product> findByNameContainingIgnoreCaseAndEffectivePriceBetween(
                         String name, Double min, Double max, Pageable pageable);
 
+        @EntityGraph(attributePaths = { "category" })
+        Page<Product> findByNameContainingIgnoreCaseAndStockLessThanEqual(
+                        String name, Integer stock, Pageable pageable);
+
+        @EntityGraph(attributePaths = { "category" })
+        Page<Product> findByNameContainingIgnoreCaseAndStockBetween(
+                        String name, Integer min, Integer max, Pageable pageable);
+
+        @EntityGraph(attributePaths = { "category" })
+        Page<Product> findByNameContainingIgnoreCaseAndStockGreaterThan(
+                        String name, Integer stock, Pageable pageable);
+
         // Old versions (filtered by the ORIGINAL price). No longer used by the
         // storefront.
         // Search the project for "PriceBetween"; if nothing else calls these two, you
